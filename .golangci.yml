@@ -116,7 +116,7 @@ linters-settings:
     simplify: true
 
   goimports:
-    local-prefixes: github.com/darmayasa221/go-base-framework
+    local-prefixes: github.com/darmayasa221/polymarket-go
 
   gosec:
     excludes:
@@ -171,37 +171,37 @@ linters-settings:
         files:
           - "**/commons/**/*.go"
         deny:
-          - pkg: "github.com/darmayasa221/go-base-framework/internal/domains"
+          - pkg: "github.com/darmayasa221/polymarket-go/internal/domains"
             desc: "commons must not import domains"
-          - pkg: "github.com/darmayasa221/go-base-framework/internal/applications"
+          - pkg: "github.com/darmayasa221/polymarket-go/internal/applications"
             desc: "commons must not import applications"
-          - pkg: "github.com/darmayasa221/go-base-framework/internal/infrastructures"
+          - pkg: "github.com/darmayasa221/polymarket-go/internal/infrastructures"
             desc: "commons must not import infrastructures"
-          - pkg: "github.com/darmayasa221/go-base-framework/internal/interfaces"
+          - pkg: "github.com/darmayasa221/polymarket-go/internal/interfaces"
             desc: "commons must not import interfaces"
       domains:
         files:
           - "**/domains/**/*.go"
         deny:
-          - pkg: "github.com/darmayasa221/go-base-framework/internal/applications"
+          - pkg: "github.com/darmayasa221/polymarket-go/internal/applications"
             desc: "domains must not import applications"
-          - pkg: "github.com/darmayasa221/go-base-framework/internal/infrastructures"
+          - pkg: "github.com/darmayasa221/polymarket-go/internal/infrastructures"
             desc: "domains must not import infrastructures"
-          - pkg: "github.com/darmayasa221/go-base-framework/internal/interfaces"
+          - pkg: "github.com/darmayasa221/polymarket-go/internal/interfaces"
             desc: "domains must not import interfaces"
       applications:
         files:
           - "**/applications/**/*.go"
         deny:
-          - pkg: "github.com/darmayasa221/go-base-framework/internal/infrastructures"
+          - pkg: "github.com/darmayasa221/polymarket-go/internal/infrastructures"
             desc: "applications must not import infrastructures"
-          - pkg: "github.com/darmayasa221/go-base-framework/internal/interfaces"
+          - pkg: "github.com/darmayasa221/polymarket-go/internal/interfaces"
             desc: "applications must not import interfaces"
       infrastructures:
         files:
           - "**/infrastructures/**/*.go"
         deny:
-          - pkg: "github.com/darmayasa221/go-base-framework/internal/interfaces"
+          - pkg: "github.com/darmayasa221/polymarket-go/internal/interfaces"
             desc: "infrastructures must not import interfaces"
 
 issues:
