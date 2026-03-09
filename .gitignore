@@ -90,5 +90,8 @@ secrets.json
 # Claude AI context (private)
 .claude/
 
+# Git worktrees (local dev only)
+.worktrees/
+
 # Local docs (research plans, decisions — not for VCS)
 docs/
