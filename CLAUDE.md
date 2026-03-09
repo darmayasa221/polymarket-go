@@ -11,10 +11,26 @@
 ## Project
 Polymarket trading bot — microservice architecture.
 Module: `github.com/darmayasa221/polymarket-go`
-Branch convention: `feature/*`, `fix/*` — PRs to `master`
+Branch convention: `feature/*`, `fix/*` — PRs to `main`
 
-> Domains are still being defined. Update this section as domains are confirmed.
-> Known: bot execution engine, market data feeds, position management.
+## Confirmed Domains
+| Domain | Purpose |
+|--------|---------|
+| `market` | Market discovery, lifecycle, 5-minute window management |
+| `oracle` | Price feeds (Chainlink + Binance), resolution signal |
+| `order` | Order creation, EIP-712 signing, GTD expiration logic |
+| `position` | Position tracking, unrealised/realised PnL |
+
+## Domain Constraints (from API research)
+- Outcomes are **"Up" / "Down"** — never "Yes" / "No"
+- Slug pattern: `{ticker}-updown-5m-{floor(unix/300)*300}` — predictable, no API call needed
+- `feeRateBps` — always fetched live from CLOB `/fee-rate`, never hardcoded
+- GTD expiration: `now + 60 + seconds_remaining_in_window`
+- Tick size can change mid-market — handle `tick_size_change` WS event
+- Three WebSocket connections required: market, user, RTDS (separate keepalive intervals)
+
+## API Research
+Complete. See `docs/decisions/polymarket-api-summary.md`.
 
 ## Layer Rules (NEVER violate)
 ```

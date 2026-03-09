@@ -7,9 +7,15 @@
 
 ## Last Session Summary
 **Date:** 2026-03-10
-**Completed:** Project agent setup — CLAUDE.md, AGENTS.md, SESSION.md, .claude/ agents + skills
-**Branch:** master
-**Next Action:** Phase 0 — initialize Go module, copy commons from base framework, set up tooling
+**Completed:** Full Polymarket API research — all 5 tasks done, all open questions resolved
+**Branch:** main
+**Artifacts created:**
+- `docs/decisions/polymarket-api-summary.md` — complete API reference (Gamma, CLOB, Data, WS, RTDS, fees, auth, contracts, oracle)
+- `docs/plans/2026-03-10-phase1-domain-plan.md` — Phase 1 + 2 implementation blueprint
+
+**Next Action:** Phase 0 tooling setup, then Phase 1 commons, then Phase 2 domains
+
+---
 
 ## Current Phase
 **Phase 0: Project Setup** — NOT STARTED
@@ -25,22 +31,63 @@
   - [ ] .env.example
   - [ ] AGENTS.md confirmed with correct module path
 
-- [ ] Phase 1: Commons — copy + verify from base framework
-- [ ] Phase 2: Domains — depends on confirmed domain list
+- [ ] Phase 1: Commons
+  - [ ] commons/timeutil — WindowStart/End, SecondsRemaining, Now()
+  - [ ] commons/crypto — GenerateUUID, GenerateSalt (uint256)
+  - [ ] commons/polyid — ConditionID, TokenID, OrderID, SlugID types
+  - [ ] commons/slug — predictable slug builder (no API call)
+
+- [ ] Phase 2: Domains
+  - [ ] domains/market — Market entity, Asset enum (btc/eth/sol/xrp), Outcome enum (Up/Down)
+  - [ ] domains/oracle — Price, PriceSource (Chainlink/Binance), PredictOutcome signal
+  - [ ] domains/order — Order entity, EIP-712 signing, GTD expiration
+  - [ ] domains/position — Position entity, UnrealisedPnL, RealisedPnL
+
 - [ ] Phase 3: Applications
 - [ ] Phase 4: Infrastructures
 - [ ] Phase 5: Interfaces
 
-## Domains Status
-> PENDING — still being designed. Use architect + researcher agents to define.
-> Run architect agent before starting Phase 2.
+---
 
-## Key Decisions Made
-- Module: github.com/darmayasa221/polymarket-go
-- Architecture: microservice approach
-- Base framework: go-base-framework `clean-code` branch (kept as-is, not merged)
-- Agent setup: executor, knowledge, monitor, thinker, architect, researcher
-- Domains: still being analyzed — update CLAUDE.md when confirmed
+## Domains — CONFIRMED
+
+All domains defined. See `docs/plans/2026-03-10-phase1-domain-plan.md` for full specs.
+
+| Domain | Purpose |
+|--------|---------|
+| `market` | Market discovery, lifecycle, window management |
+| `oracle` | Price feeds (Chainlink + Binance), resolution signal |
+| `order` | Order creation, EIP-712 signing, GTD logic |
+| `position` | Position tracking, PnL calculation |
+
+---
+
+## Key Decisions — FINAL
+
+| Decision | Value |
+|----------|-------|
+| Module | `github.com/darmayasa221/polymarket-go` |
+| Architecture | Microservice, clean architecture |
+| Base framework | `go-base-framework` clean-code branch |
+| Market type | 5-minute Up/Down (BTC, ETH, SOL, XRP) |
+| Outcomes | **"Up" / "Down"** — never "Yes"/"No" |
+| Signature type | EOA = 0 (funder = EOA address, needs POL for gas) |
+| USDC | USDC.e only — `0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174` |
+| Slug | `{ticker}-updown-5m-{floor(unix/300)*300}` — predictable |
+| WS connections | 3 — market, user, RTDS (separate keepalive intervals) |
+| EIP-712 | Port from `https://github.com/Polymarket/clob-client/blob/main/src/signing/eip712.ts` |
+
+---
+
+## Key Constraints (from research)
+- Heartbeat: POST every 5s or all orders auto-cancel after 10s
+- GTD expiration: `now + 60 + seconds_remaining` (60s mandatory buffer)
+- `feeRateBps`: fetch from `/fee-rate` before every order — never hardcode
+- `tick_size_change` WS event: MUST handle — tick size changes when price > 0.96 or < 0.04
+- Matching engine restarts: Tuesdays 7AM ET, HTTP 425 → exponential backoff
+- `enable_order_book: true` — filter required before trading any market
+
+---
 
 ## Agent Roles (always active)
 - Executor: writes code following skills
@@ -57,9 +104,16 @@
 4. Thinker → reviews after each phase
 5. Monitor → surfaces decisions to you, not routine progress
 
+---
+
 ## Start Next Session With
 ```
 Read SESSION.md and CLAUDE.md. Check git log --oneline.
 Current phase: Phase 0 (not started).
-Next: start Phase 0 — go module init and tooling setup.
+Research is COMPLETE — see docs/decisions/polymarket-api-summary.md.
+Domain plan is READY — see docs/plans/2026-03-10-phase1-domain-plan.md.
+Next: Phase 0 tooling setup, then implement Phase 1 commons in order:
+  1. commons/timeutil  2. commons/crypto  3. commons/polyid  4. commons/slug
+Then Phase 2 domains:
+  5. domains/market  6. domains/oracle  7. domains/order  8. domains/position
 ```
