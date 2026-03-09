@@ -7,24 +7,25 @@
 
 ## Last Session Summary
 **Date:** 2026-03-10
-**Completed:** Phase 0 fix + Phase 1 Commons + Phase 2 Domains — all 10 tasks done, all tests pass, lint clean
+**Completed:** Phase 3 pre-work — research (7 questions answered) + Architect blueprint (96 files designed)
 **Branch:** main
 **Artifacts created:**
-- `internal/commons/timeutil/window.go` — WindowStart, WindowEnd, SecondsRemaining
-- `internal/commons/crypto/salt.go` — GenerateSalt (uint256 for EIP-712)
-- `internal/commons/polyid/polyid.go` — ConditionID, TokenID, OrderID, SlugID
-- `internal/commons/slug/slug.go` — ForAsset, CurrentWindow, NextWindow
-- `internal/domains/market/` — Market aggregate, Asset/Outcome enums
-- `internal/domains/oracle/` — Price entity, PriceSource, PredictOutcome signal
-- `internal/domains/order/` — Order aggregate, EIP-712 signing, GTD expiration
-- `internal/domains/position/` — Position aggregate, UnrealisedPnL, RealisedPnL
+- `docs/decisions/5m-market-mechanics.md` — live API research, 7 questions answered
+- `docs/plans/2026-03-10-phase3-applications-plan.md` — 11-task plan, 96 files, ready to execute
 
-**Next Action:** Phase 3 requires research session first (see blocked section below)
+**Key research findings:**
+- Fee: `base_fee: 1000` → parabolic `fee(p) = p × (1-p) × curveConstant`; peak ~156 bps at p=0.50
+- Settlement: ~2-3 min after window close (Polygon 64-block finality)
+- Liquidity: $10-$200 sweet spot; books always populated; late entry viable near 50/50
+- Chainlink: timestamp-matched Data Stream reports at windowStart and windowEnd
+- Volume: 100-500 trades/window; bursty; algorithmically driven
+
+**Next Action:** Execute `docs/plans/2026-03-10-phase3-applications-plan.md` (11 tasks, 5 batches)
 
 ---
 
 ## Current Phase
-**Phase 3: Applications** — BLOCKED (research required first)
+**Phase 3: Applications** — READY (research + architecture complete)
 
 ## Phase Checklist
 - [x] Phase 0: Project Setup
@@ -45,7 +46,9 @@
   - [x] domains/position — Position entity, UnrealisedPnL, RealisedPnL
 
 - [ ] Phase 3: Applications
-  - ⚠️ BLOCKED — requires research session first (see below)
+  - [x] Research complete — `docs/decisions/5m-market-mechanics.md`
+  - [x] Architecture complete — `docs/plans/2026-03-10-phase3-applications-plan.md`
+  - [ ] Implementation — 11 tasks, 96 files, READY
 - [ ] Phase 4: Infrastructures
 - [ ] Phase 5: Interfaces
 
@@ -108,26 +111,14 @@ All domains defined. See `docs/plans/2026-03-10-phase1-domain-plan.md` for full 
 
 ---
 
-## Phase 3 Pre-Requisite Research (REQUIRED before any Phase 3 code)
-
-Before designing applications layer, researcher agent must answer:
-
-1. **5m market liquidity** — real order book depth on live markets. Is $10-$100 tradeable without moving the price?
-2. **Late-entry fillability** — at T-4:00 (last 60s), is there still an active order book?
-3. **Actual feeRateBps** — call `/fee-rate` on a live 5m market. What is the real fee?
-4. **Chainlink round selection** — which exact round resolves the market? Closest to windowEnd? Or last confirmed before?
-5. **Settlement speed** — how many seconds after window close does USDC arrive?
-6. **Historical volume** — check Data API for real trade counts on past 5m markets
-7. **Bid/ask spread** — typical spread on 5m markets at different times in the window
-
-Output: `docs/decisions/5m-market-mechanics.md` before any Phase 3 planning.
+## Phase 3 Research — COMPLETE
+All 7 questions answered. See `docs/decisions/5m-market-mechanics.md`.
 
 ---
 
 ## Start Next Session With
 ```
 Read SESSION.md and CLAUDE.md. Check git log --oneline.
-Phase 3 is BLOCKED — run Researcher agent to answer the 7 questions in the
-Phase 3 Pre-Requisite Research section above. Output to docs/decisions/5m-market-mechanics.md.
-Then run Architect agent to design the applications layer. Then create a new plan file.
+Use superpowers:executing-plans on docs/plans/2026-03-10-phase3-applications-plan.md.
+Start from Task 1 and execute every task in order (11 tasks, 5 batches).
 ```
