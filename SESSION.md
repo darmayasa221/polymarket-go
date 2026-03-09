@@ -44,6 +44,7 @@
   - [ ] domains/position — Position entity, UnrealisedPnL, RealisedPnL
 
 - [ ] Phase 3: Applications
+  - ⚠️ BLOCKED — requires research session first (see below)
 - [ ] Phase 4: Infrastructures
 - [ ] Phase 5: Interfaces
 
@@ -106,14 +107,25 @@ All domains defined. See `docs/plans/2026-03-10-phase1-domain-plan.md` for full 
 
 ---
 
+## Phase 3 Pre-Requisite Research (REQUIRED before any Phase 3 code)
+
+Before designing applications layer, researcher agent must answer:
+
+1. **5m market liquidity** — real order book depth on live markets. Is $10-$100 tradeable without moving the price?
+2. **Late-entry fillability** — at T-4:00 (last 60s), is there still an active order book?
+3. **Actual feeRateBps** — call `/fee-rate` on a live 5m market. What is the real fee?
+4. **Chainlink round selection** — which exact round resolves the market? Closest to windowEnd? Or last confirmed before?
+5. **Settlement speed** — how many seconds after window close does USDC arrive?
+6. **Historical volume** — check Data API for real trade counts on past 5m markets
+7. **Bid/ask spread** — typical spread on 5m markets at different times in the window
+
+Output: `docs/decisions/5m-market-mechanics.md` before any Phase 3 planning.
+
+---
+
 ## Start Next Session With
 ```
 Read SESSION.md and CLAUDE.md. Check git log --oneline.
-Current phase: Phase 0 (not started).
-Research is COMPLETE — see docs/decisions/polymarket-api-summary.md.
-Domain plan is READY — see docs/plans/2026-03-10-phase1-domain-plan.md.
-Next: Phase 0 tooling setup, then implement Phase 1 commons in order:
-  1. commons/timeutil  2. commons/crypto  3. commons/polyid  4. commons/slug
-Then Phase 2 domains:
-  5. domains/market  6. domains/oracle  7. domains/order  8. domains/position
+Use superpowers:executing-plans on docs/plans/2026-03-10-phase0-1-2-implementation.md.
+Start from Task 0 and execute every task in order.
 ```
