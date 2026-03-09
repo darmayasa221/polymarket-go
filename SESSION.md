@@ -7,41 +7,42 @@
 
 ## Last Session Summary
 **Date:** 2026-03-10
-**Completed:** Full Polymarket API research — all 5 tasks done, all open questions resolved
+**Completed:** Phase 0 fix + Phase 1 Commons + Phase 2 Domains — all 10 tasks done, all tests pass, lint clean
 **Branch:** main
 **Artifacts created:**
-- `docs/decisions/polymarket-api-summary.md` — complete API reference (Gamma, CLOB, Data, WS, RTDS, fees, auth, contracts, oracle)
-- `docs/plans/2026-03-10-phase1-domain-plan.md` — Phase 1 + 2 implementation blueprint
+- `internal/commons/timeutil/window.go` — WindowStart, WindowEnd, SecondsRemaining
+- `internal/commons/crypto/salt.go` — GenerateSalt (uint256 for EIP-712)
+- `internal/commons/polyid/polyid.go` — ConditionID, TokenID, OrderID, SlugID
+- `internal/commons/slug/slug.go` — ForAsset, CurrentWindow, NextWindow
+- `internal/domains/market/` — Market aggregate, Asset/Outcome enums
+- `internal/domains/oracle/` — Price entity, PriceSource, PredictOutcome signal
+- `internal/domains/order/` — Order aggregate, EIP-712 signing, GTD expiration
+- `internal/domains/position/` — Position aggregate, UnrealisedPnL, RealisedPnL
 
-**Next Action:** Phase 0 tooling setup, then Phase 1 commons, then Phase 2 domains
+**Next Action:** Phase 3 requires research session first (see blocked section below)
 
 ---
 
 ## Current Phase
-**Phase 0: Project Setup** — NOT STARTED
+**Phase 3: Applications** — BLOCKED (research required first)
 
 ## Phase Checklist
-- [ ] Phase 0: Project Setup
-  - [ ] git init + module init
-  - [ ] Copy commons from go-base-framework
-  - [ ] .golangci.yml (depguard layer rules)
-  - [ ] lefthook.yml (pre-commit hooks)
-  - [ ] Makefile
-  - [ ] Dockerfile + docker-compose
-  - [ ] .env.example
-  - [ ] AGENTS.md confirmed with correct module path
+- [x] Phase 0: Project Setup
+  - [x] depguard module paths fixed to polymarket-go
+  - [x] .env.example with Polymarket env vars
+  - [x] shopspring/decimal dependency added
 
-- [ ] Phase 1: Commons
-  - [ ] commons/timeutil — WindowStart/End, SecondsRemaining, Now()
-  - [ ] commons/crypto — GenerateUUID, GenerateSalt (uint256)
-  - [ ] commons/polyid — ConditionID, TokenID, OrderID, SlugID types
-  - [ ] commons/slug — predictable slug builder (no API call)
+- [x] Phase 1: Commons
+  - [x] commons/timeutil — WindowStart/End, SecondsRemaining
+  - [x] commons/crypto — GenerateSalt (uint256)
+  - [x] commons/polyid — ConditionID, TokenID, OrderID, SlugID types
+  - [x] commons/slug — predictable slug builder (no API call)
 
-- [ ] Phase 2: Domains
-  - [ ] domains/market — Market entity, Asset enum (btc/eth/sol/xrp), Outcome enum (Up/Down)
-  - [ ] domains/oracle — Price, PriceSource (Chainlink/Binance), PredictOutcome signal
-  - [ ] domains/order — Order entity, EIP-712 signing, GTD expiration
-  - [ ] domains/position — Position entity, UnrealisedPnL, RealisedPnL
+- [x] Phase 2: Domains
+  - [x] domains/market — Market entity, Asset enum (btc/eth/sol/xrp), Outcome enum (Up/Down)
+  - [x] domains/oracle — Price, PriceSource (Chainlink/Binance), PredictOutcome signal
+  - [x] domains/order — Order entity, EIP-712 signing, GTD expiration
+  - [x] domains/position — Position entity, UnrealisedPnL, RealisedPnL
 
 - [ ] Phase 3: Applications
   - ⚠️ BLOCKED — requires research session first (see below)
@@ -126,6 +127,7 @@ Output: `docs/decisions/5m-market-mechanics.md` before any Phase 3 planning.
 ## Start Next Session With
 ```
 Read SESSION.md and CLAUDE.md. Check git log --oneline.
-Use superpowers:executing-plans on docs/plans/2026-03-10-phase0-1-2-implementation.md.
-Start from Task 0 and execute every task in order.
+Phase 3 is BLOCKED — run Researcher agent to answer the 7 questions in the
+Phase 3 Pre-Requisite Research section above. Output to docs/decisions/5m-market-mechanics.md.
+Then run Architect agent to design the applications layer. Then create a new plan file.
 ```

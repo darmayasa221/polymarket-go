@@ -1,9 +1,9 @@
 # CLAUDE.md — polymarket-go
 
 ## Current Build State
-- [ ] Phase 0: Project Setup
-- [ ] Phase 1: Commons
-- [ ] Phase 2: Domains
+- [x] Phase 0: Project Setup
+- [x] Phase 1: Commons
+- [x] Phase 2: Domains
 - [ ] Phase 3: Applications
 - [ ] Phase 4: Infrastructures
 - [ ] Phase 5: Interfaces
