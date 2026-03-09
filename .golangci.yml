@@ -1,0 +1,225 @@
+# golangci-lint configuration
+# https://golangci-lint.run/usage/configuration/
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.v1.jsonschema.json
+
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters:
+  enable:
+    # Default linters
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+    # Additional recommended linters
+    - bodyclose
+    - contextcheck
+    - dupl
+    - errname
+    - errorlint
+    - exhaustive
+    - copyloopvar
+    - forcetypeassert
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - gofmt
+    - goimports
+    - goprintffuncname
+    - gosec
+    - misspell
+    - nakedret
+    - nilerr
+    - nilnil
+    - noctx
+    - nolintlint
+    - prealloc
+    - predeclared
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - stylecheck
+    - usetesting
+    - testpackage
+    - tparallel
+    - unconvert
+    - unparam
+    - wastedassign
+    - whitespace
+    - depguard
+
+    - gocognit
+
+  disable:
+    - funlen
+    - godox
+    - lll
+    - wsl
+    - wrapcheck
+
+linters-settings:
+  dupl:
+    threshold: 150
+
+  errcheck:
+    check-type-assertions: true
+    check-blank: false # var _ Interface = (*Impl)(nil) is a valid compile-time assertion, not a discarded error
+
+  errorlint:
+    errorf: true
+    asserts: true
+    comparison: true
+
+  exhaustive:
+    default-signifies-exhaustive: true
+
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - hugeParam
+      - rangeValCopy
+
+  gocognit:
+    min-complexity: 15
+
+  gocyclo:
+    min-complexity: 15
+
+  godot:
+    scope: declarations
+    capital: false
+
+  gofmt:
+    simplify: true
+
+  goimports:
+    local-prefixes: github.com/darmayasa221/go-base-framework
+
+  gosec:
+    excludes:
+      - G104 # Audit errors not checked
+      - G101 # False positives for error constant names containing "password", "token"
+
+  misspell:
+    locale: US
+
+  nakedret:
+    max-func-lines: 30
+
+  prealloc:
+    simple: true
+    range-loops: true
+    for-loops: false
+
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+        arguments:
+          - "disableStutteringCheck" # type UserID, TokenID intentionally repeat package name for domain clarity
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+
+  stylecheck:
+    checks:
+      ["all", "-ST1000", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022"]
+
+  unparam:
+    check-exported: false
+
+  depguard:
+    rules:
+      commons:
+        files:
+          - "**/commons/**/*.go"
+        deny:
+          - pkg: "github.com/darmayasa221/go-base-framework/internal/domains"
+            desc: "commons must not import domains"
+          - pkg: "github.com/darmayasa221/go-base-framework/internal/applications"
+            desc: "commons must not import applications"
+          - pkg: "github.com/darmayasa221/go-base-framework/internal/infrastructures"
+            desc: "commons must not import infrastructures"
+          - pkg: "github.com/darmayasa221/go-base-framework/internal/interfaces"
+            desc: "commons must not import interfaces"
+      domains:
+        files:
+          - "**/domains/**/*.go"
+        deny:
+          - pkg: "github.com/darmayasa221/go-base-framework/internal/applications"
+            desc: "domains must not import applications"
+          - pkg: "github.com/darmayasa221/go-base-framework/internal/infrastructures"
+            desc: "domains must not import infrastructures"
+          - pkg: "github.com/darmayasa221/go-base-framework/internal/interfaces"
+            desc: "domains must not import interfaces"
+      applications:
+        files:
+          - "**/applications/**/*.go"
+        deny:
+          - pkg: "github.com/darmayasa221/go-base-framework/internal/infrastructures"
+            desc: "applications must not import infrastructures"
+          - pkg: "github.com/darmayasa221/go-base-framework/internal/interfaces"
+            desc: "applications must not import interfaces"
+      infrastructures:
+        files:
+          - "**/infrastructures/**/*.go"
+        deny:
+          - pkg: "github.com/darmayasa221/go-base-framework/internal/interfaces"
+            desc: "infrastructures must not import interfaces"
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - dupl
+        - errcheck
+        - forcetypeassert
+        - gosec
+        - gocyclo
+        - testpackage
+
+    # Exclude known issues in generated files
+    - path: mock_
+      linters:
+        - all
+
+  max-issues-per-linter: 50
+  max-same-issues: 3

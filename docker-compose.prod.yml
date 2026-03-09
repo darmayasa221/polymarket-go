@@ -1,0 +1,61 @@
+# Production compose — optimised, minimal attack surface.
+# Usage: docker compose -f docker-compose.prod.yml up -d
+#
+# Prerequisites: copy .env.example → .env and fill in real secrets.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GO_VERSION: "1.25"
+    image: go-base-framework:latest
+    container_name: go-base-framework-api
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      APP_ENV: "production"
+      # Override host-local addresses with Docker service names.
+      REDIS_ADDRESS: "redis:6379"
+      DB_PATH: "/app/db/app.db"
+    volumes:
+      # Persist SQLite database across container restarts.
+      - app-db:/app/db
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    container_name: go-base-framework-redis
+    # No external port — only reachable within app-network.
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+    restart: always
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  app-db:

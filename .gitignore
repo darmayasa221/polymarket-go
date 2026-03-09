@@ -1,0 +1,92 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories
+vendor/
+
+# Build output
+bin/
+tmp/
+
+# IDE specific files
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Database files
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/*.sqlite
+data/*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+
+# Coverage reports
+coverage/
+*.coverprofile
+
+# Node modules (for husky/commitlint)
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Air hot reload
+tmp/
+
+# Log files
+*.log
+logs/
+
+# Debug files
+debug
+
+# Profiling
+*.prof
+*.pprof
+
+# Docker
+.docker/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# Secrets
+*.pem
+*.key
+credentials.json
+secrets.json
+
+# # Claude AI context (private)
+# .claude
+# CLAUDE.md

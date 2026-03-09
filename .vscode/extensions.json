@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "golang.go",
+    "streetsidesoftware.code-spell-checker",
+    "usernamehw.errorlens",
+    "eamodio.gitlens",
+    "EditorConfig.EditorConfig",
+    "ms-azuretools.vscode-docker",
+    "redhat.vscode-yaml",
+    "tamasfe.even-better-toml",
+    "zxh404.vscode-proto3"
+  ]
+}

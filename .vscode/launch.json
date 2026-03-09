@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch API",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/cmd/server",
+      "env": {
+        "APP_ENV": "development",
+        "APP_PORT": "5000"
+      },
+      "args": []
+    },
+    {
+      "name": "Debug Current Test",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${fileDirname}",
+      "args": ["-test.v", "-test.run", "${selectedText}"]
+    },
+    {
+      "name": "Debug All Tests",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${workspaceFolder}/...",
+      "args": ["-test.v"]
+    }
+  ]
+}

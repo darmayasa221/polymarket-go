@@ -1,0 +1,54 @@
+{
+  "go.useLanguageServer": true,
+  "go.lintTool": "golangci-lint",
+  "go.lintFlags": ["--fast"],
+  "go.lintOnSave": "package",
+  "go.formatTool": "goimports",
+  "go.testFlags": ["-v"],
+  "go.coverOnSave": false,
+  "go.coverageDecorator": {
+    "type": "gutter",
+    "coveredHighlightColor": "rgba(64,128,128,0.5)",
+    "uncoveredHighlightColor": "rgba(128,64,64,0.25)",
+    "coveredGutterStyle": "blockgreen",
+    "uncoveredGutterStyle": "blockred"
+  },
+  "gopls": {
+    "ui.semanticTokens": true,
+    "formatting.gofumpt": true
+  },
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+  "[go]": {
+    "editor.defaultFormatter": "golang.go",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "[go.mod]": {
+    "editor.defaultFormatter": "golang.go",
+    "editor.formatOnSave": true
+  },
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "[markdown]": {
+    "files.trimTrailingWhitespace": false
+  },
+  "search.exclude": {
+    "**/vendor": true,
+    "**/bin": true,
+    "**/tmp": true,
+    "**/.git": true,
+    "**/coverage": true,
+    "**/data": true
+  },
+  "files.watcherExclude": {
+    "**/vendor/**": true,
+    "**/bin/**": true,
+    "**/tmp/**": true
+  }
+}

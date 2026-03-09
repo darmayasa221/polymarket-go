@@ -1,0 +1,16 @@
+# syntax=docker/dockerfile:1
+# Development image — hot reload via air. Source is mounted as a volume.
+
+ARG GO_VERSION=1.25
+
+FROM golang:${GO_VERSION}-alpine
+
+RUN apk add --no-cache ca-certificates tzdata git && \
+    go install github.com/air-verse/air@latest
+
+WORKDIR /app
+
+EXPOSE 3000
+
+# air reads .air.toml from WORKDIR (mounted volume).
+CMD ["air"]

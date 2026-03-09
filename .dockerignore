@@ -1,0 +1,29 @@
+# VCS
+.git
+.gitignore
+.github
+
+# Documentation
+docs/
+*.md
+
+# Build artifacts
+bin/
+tmp/
+*.out
+coverage.out
+
+# Local data
+data/
+db/
+
+# Local environment (never bake secrets into the image)
+.env
+
+# Dev tooling
+.air.toml
+.worktrees/
+
+# IDE
+.idea/
+.vscode/
