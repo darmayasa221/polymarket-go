@@ -87,6 +87,8 @@ debug
 credentials.json
 secrets.json
 
-# # Claude AI context (private)
-# .claude
-# CLAUDE.md
+# Claude AI context (private)
+.claude/
+
+# Local docs (research plans, decisions — not for VCS)
+docs/
