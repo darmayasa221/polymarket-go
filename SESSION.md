@@ -7,65 +7,50 @@
 
 ## Last Session Summary
 **Date:** 2026-03-10
-**Completed:** Phase 3 pre-work — research (7 questions answered) + Architect blueprint (96 files designed)
-**Branch:** main
-**Artifacts created:**
-- `docs/decisions/5m-market-mechanics.md` — live API research, 7 questions answered
-- `docs/plans/2026-03-10-phase3-applications-plan.md` — 11-task plan, 96 files, ready to execute
+**Completed:** Phase 3 — ALL 11 Tasks DONE.
+**Branch:** `feature/phase3-applications`
+**Worktree:** `.worktrees/feature-phase3`
 
-**Key research findings:**
-- Fee: `base_fee: 1000` → parabolic `fee(p) = p × (1-p) × curveConstant`; peak ~156 bps at p=0.50
-- Settlement: ~2-3 min after window close (Polygon 64-block finality)
-- Liquidity: $10-$200 sweet spot; books always populated; late entry viable near 50/50
-- Chainlink: timestamp-matched Data Stream reports at windowStart and windowEnd
-- Volume: 100-500 trades/window; bursty; algorithmically driven
+**What was done:**
+- Task 9: CloseWindow (6 tests green) + GetWindowState (4 tests green) — committed
+- Task 10: Portfolio context — all 5 use cases (21 tests green) — committed
+- Task 11: Full integration build + lint — all clean, CLAUDE.md updated — committed
 
-**Next Action:** Execute `docs/plans/2026-03-10-phase3-applications-plan.md` (11 tasks, 5 batches)
+**Phase 3 is COMPLETE.**
 
 ---
 
 ## Current Phase
-**Phase 3: Applications** — READY (research + architecture complete)
+**Phase 4: Infrastructures** — NOT STARTED
 
 ## Phase Checklist
 - [x] Phase 0: Project Setup
-  - [x] depguard module paths fixed to polymarket-go
-  - [x] .env.example with Polymarket env vars
-  - [x] shopspring/decimal dependency added
-
 - [x] Phase 1: Commons
-  - [x] commons/timeutil — WindowStart/End, SecondsRemaining
-  - [x] commons/crypto — GenerateSalt (uint256)
-  - [x] commons/polyid — ConditionID, TokenID, OrderID, SlugID types
-  - [x] commons/slug — predictable slug builder (no API call)
-
 - [x] Phase 2: Domains
-  - [x] domains/market — Market entity, Asset enum (btc/eth/sol/xrp), Outcome enum (Up/Down)
-  - [x] domains/oracle — Price, PriceSource (Chainlink/Binance), PredictOutcome signal
-  - [x] domains/order — Order entity, EIP-712 signing, GTD expiration
-  - [x] domains/position — Position entity, UnrealisedPnL, RealisedPnL
-
-- [ ] Phase 3: Applications
-  - [x] Research complete — `docs/decisions/5m-market-mechanics.md`
-  - [x] Architecture complete — `docs/plans/2026-03-10-phase3-applications-plan.md`
-  - [ ] Implementation — 11 tasks, 96 files, READY
+- [x] Phase 3: Applications
+  - [x] Research complete
+  - [x] Architecture complete
+  - [x] Task 1: shared/ (windowstate, signal, feecalc, FeeRateProvider port)
+  - [x] Task 2: pricing/ports/price_repository.go
+  - [x] Task 3: pricing RecordPrice command
+  - [x] Task 4: pricing GetCurrentSignal query
+  - [x] Task 5: pricing ComputeFee query (formula: p*(1-p)*0.0625)
+  - [x] Task 6: marketwatch ports + RefreshMarkets
+  - [x] Task 7: marketwatch UpdateTickSize + GetActiveMarket + IsMarketTradeable
+  - [x] Task 8: trading ports + StartWindow + Heartbeat
+  - [x] Task 9: trading PlaceOrder + CancelOrder + CloseWindow + GetWindowState
+  - [x] Task 10: portfolio context (all 5 commands/queries)
+  - [x] Task 11: full integration build + lint + update CLAUDE.md/SESSION.md
 - [ ] Phase 4: Infrastructures
 - [ ] Phase 5: Interfaces
 
 ---
 
-## Domains — CONFIRMED
-
-All domains defined. See `docs/plans/2026-03-10-phase1-domain-plan.md` for full specs.
-
-| Domain | Purpose |
-|--------|---------|
-| `market` | Market discovery, lifecycle, window management |
-| `oracle` | Price feeds (Chainlink + Binance), resolution signal |
-| `order` | Order creation, EIP-712 signing, GTD logic |
-| `position` | Position tracking, PnL calculation |
-
----
+## Git State
+- Main branch: `main`
+- Feature branch: `feature/phase3-applications`
+- Worktree: `.worktrees/feature-phase3`
+- Last commit: `chore(progress): mark Phase 3 complete in CLAUDE.md and SESSION.md`
 
 ## Key Decisions — FINAL
 
@@ -73,24 +58,23 @@ All domains defined. See `docs/plans/2026-03-10-phase1-domain-plan.md` for full 
 |----------|-------|
 | Module | `github.com/darmayasa221/polymarket-go` |
 | Architecture | Microservice, clean architecture |
-| Base framework | `go-base-framework` clean-code branch |
 | Market type | 5-minute Up/Down (BTC, ETH, SOL, XRP) |
 | Outcomes | **"Up" / "Down"** — never "Yes"/"No" |
-| Signature type | EOA = 0 (funder = EOA address, needs POL for gas) |
+| Signature type | EOA = 0 |
 | USDC | USDC.e only — `0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174` |
-| Slug | `{ticker}-updown-5m-{floor(unix/300)*300}` — predictable |
-| WS connections | 3 — market, user, RTDS (separate keepalive intervals) |
-| EIP-712 | Port from `https://github.com/Polymarket/clob-client/blob/main/src/signing/eip712.ts` |
+| Fee formula | `fee(p) = p * (1-p) * 0.0625` — VERIFIED against live API |
+| EIP-712 signing | Applications layer computes hash ONLY. Interfaces layer signs with private key. |
+| Polygon chain ID | 137 |
+| Min order size | 5 tokens |
 
 ---
 
 ## Key Constraints (from research)
 - Heartbeat: POST every 5s or all orders auto-cancel after 10s
-- GTD expiration: `now + 60 + seconds_remaining` (60s mandatory buffer)
+- GTD expiration: `windowEnd + 60s` mandatory buffer
 - `feeRateBps`: fetch from `/fee-rate` before every order — never hardcode
-- `tick_size_change` WS event: MUST handle — tick size changes when price > 0.96 or < 0.04
-- Matching engine restarts: Tuesdays 7AM ET, HTTP 425 → exponential backoff
-- `enable_order_book: true` — filter required before trading any market
+- `tick_size_change` WS event: MUST handle — valid tick sizes: 0.1, 0.01, 0.001, 0.0001
+- Matching engine restarts: Tuesdays 7AM ET, HTTP 425 -> exponential backoff
 
 ---
 
@@ -99,55 +83,30 @@ All domains defined. See `docs/plans/2026-03-10-phase1-domain-plan.md` for full 
 **"Defend the Money. Profit is Bonus."**
 
 Priority order (highest to lowest):
-1. Never lose more than $3 on any single trade (stop loss at −$0.20/token from entry)
+1. Never lose more than $3 on any single trade (stop loss at -$0.20/token from entry)
 2. Exit at +$2 profit minimum — do not chase $1.00 resolution
 3. Never hold a losing position to resolution if exit price > $0.10
-4. If total capital < $16 → stop all trading, protect reserve
+4. If total capital < $16 -> stop all trading, protect reserve
 5. Sit out windows with confidence < 0.30 — no signal = no trade
 
 **Mid-window exit triggers (runs every 30s during window):**
-- STOP LOSS: token price drops 20 cents below entry → sell immediately
-- TAKE PROFIT: token price rises 20 cents above entry → sell, lock it
-- TIME STOP: T+4:30 and position is underwater → sell, cut loss
+- STOP LOSS: token price drops 20 cents below entry -> sell immediately
+- TAKE PROFIT: token price rises 20 cents above entry -> sell, lock it
+- TIME STOP: T+4:30 and position is underwater -> sell, cut loss
 
-**Why this matters (math):**
-- Without stop loss: break-even = 56% win rate
-- With stop loss (rescues 30% of losses): break-even drops to 48%
-- That 8% difference is the margin between a bot that survives and one that busts
+**Math:** Without stop loss: break-even = 56% win rate. With stop loss: 48%. That 8% is survival margin.
 
-**Capital rules:**
-- Max deployed per window: 80% of total capital ($32 if capital = $40)
-- Reserve: always keep minimum 20% ($8) — covers settlement gap + next window entry
-- Selective: only trade 2-3 assets per window when signal confidence > 0.30
-- Never trade all 4 assets simultaneously unless all 4 have strong signals (rare)
-
----
-
-## Agent Roles (always active)
-- Executor: writes code following skills
-- Knowledge: reads codebase for context
-- Monitor: asks YOU when decisions needed (not routine work)
-- Thinker: reviews after each phase
-- Architect: designs domains/services BEFORE implementation
-- Researcher: uses MCP tools to research libraries and external APIs
-
-## Mandatory Workflow (NEVER skip)
-1. Researcher → library/API research before any external dependency decision
-2. Architect → domain/service blueprint before any domain code
-3. Executor → implements following blueprint + skills
-4. Thinker → reviews after each phase
-5. Monitor → surfaces decisions to you, not routine progress
-
----
-
-## Phase 3 Research — COMPLETE
-All 7 questions answered. See `docs/decisions/5m-market-mechanics.md`.
+**Capital rules:** 80% max deployed, 20% reserve always, skip confidence < 0.30.
 
 ---
 
 ## Start Next Session With
 ```
 Read SESSION.md and CLAUDE.md. Check git log --oneline.
-Use superpowers:executing-plans on docs/plans/2026-03-10-phase3-applications-plan.md.
-Start from Task 1 and execute every task in order (11 tasks, 5 batches).
+Phase 3 is COMPLETE. Next: Phase 4 (Infrastructures).
+Use superpowers:finishing-a-development-branch to wrap up feature/phase3-applications first.
+Then write the Phase 4 plan using superpowers:writing-plans before any implementation.
+Phase 4 will implement: repository adapters (PostgreSQL/Redis),
+CLOB HTTP client, WebSocket listeners (market/user/RTDS),
+Chainlink reader, heartbeat service, and chain-reading infrastructure.
 ```
