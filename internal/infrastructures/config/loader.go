@@ -25,12 +25,15 @@ func Load(envFile string) (*Config, error) {
 	viper.AutomaticEnv()
 
 	cfg := &Config{
-		App:      appConfig(),
-		HTTP:     httpServerConfig(),
-		Database: sqliteConfig(),
-		Cache:    redisConfig(),
-		JWT:      jwtConfig(),
-		Bcrypt:   bcryptConfig(),
+		App:        appConfig(),
+		HTTP:       httpServerConfig(),
+		Database:   sqliteConfig(),
+		PostgreSQL: postgresqlConfig(),
+		Cache:      redisConfig(),
+		JWT:        jwtConfig(),
+		Bcrypt:     bcryptConfig(),
+		CLOB:       clobConfig(),
+		Gamma:      gammaConfig(),
 	}
 
 	if err := validate(cfg); err != nil {
@@ -47,6 +50,31 @@ func appConfig() AppConfig {
 		Environment: getOrDefault("APP_ENV", appconst.EnvDevelopment),
 		Version:     getOrDefault("APP_VERSION", appconst.Version),
 		LogLevel:    getOrDefault("APP_LOG_LEVEL", appconst.DefaultLogLevel),
+	}
+}
+
+// postgresqlConfig builds the PostgreSQLConfig section from environment variables.
+func postgresqlConfig() PostgreSQLConfig {
+	return PostgreSQLConfig{
+		DSN: viper.GetString("DATABASE_URL"),
+	}
+}
+
+// clobConfig builds the CLOBConfig section from environment variables.
+func clobConfig() CLOBConfig {
+	return CLOBConfig{
+		BaseURL:       getOrDefault("CLOB_BASE_URL", "https://clob.polymarket.com"),
+		Address:       viper.GetString("POLY_FUNDER_ADDRESS"),
+		APIKey:        viper.GetString("POLY_API_KEY"),
+		APISecret:     viper.GetString("POLY_API_SECRET"),
+		APIPassphrase: viper.GetString("POLY_API_PASSPHRASE"),
+	}
+}
+
+// gammaConfig builds the GammaConfig section from environment variables.
+func gammaConfig() GammaConfig {
+	return GammaConfig{
+		BaseURL: getOrDefault("GAMMA_BASE_URL", "https://gamma-api.polymarket.com"),
 	}
 }
 
