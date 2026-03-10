@@ -74,7 +74,7 @@
 - GTD expiration: `windowEnd + 60s` mandatory buffer
 - `feeRateBps`: fetch from `/fee-rate` before every order — never hardcode
 - `tick_size_change` WS event: MUST handle — valid tick sizes: 0.1, 0.01, 0.001, 0.0001
-- Matching engine restarts: Tuesdays 7AM ET, HTTP 425 -> exponential backoff
+- Matching engine restarts: Tuesdays 7AM ET, HTTP 425 → exponential backoff
 
 ---
 
@@ -83,20 +83,44 @@
 **"Defend the Money. Profit is Bonus."**
 
 Priority order (highest to lowest):
-1. Never lose more than $3 on any single trade (stop loss at -$0.20/token from entry)
+1. Never lose more than $3 on any single trade (stop loss at −$0.20/token from entry)
 2. Exit at +$2 profit minimum — do not chase $1.00 resolution
 3. Never hold a losing position to resolution if exit price > $0.10
-4. If total capital < $16 -> stop all trading, protect reserve
+4. If total capital < $16 → stop all trading, protect reserve
 5. Sit out windows with confidence < 0.30 — no signal = no trade
 
 **Mid-window exit triggers (runs every 30s during window):**
-- STOP LOSS: token price drops 20 cents below entry -> sell immediately
-- TAKE PROFIT: token price rises 20 cents above entry -> sell, lock it
-- TIME STOP: T+4:30 and position is underwater -> sell, cut loss
+- STOP LOSS: token price drops 20 cents below entry → sell immediately
+- TAKE PROFIT: token price rises 20 cents above entry → sell, lock it
+- TIME STOP: T+4:30 and position is underwater → sell, cut loss
 
-**Math:** Without stop loss: break-even = 56% win rate. With stop loss: 48%. That 8% is survival margin.
+**Why this matters (math):**
+- Without stop loss: break-even = 56% win rate
+- With stop loss (rescues 30% of losses): break-even drops to 48%
+- That 8% difference is the margin between a bot that survives and one that busts
 
-**Capital rules:** 80% max deployed, 20% reserve always, skip confidence < 0.30.
+**Capital rules:**
+- Max deployed per window: 80% of total capital ($32 if capital = $40)
+- Reserve: always keep minimum 20% ($8) — covers settlement gap + next window entry
+- Selective: only trade 2-3 assets per window when signal confidence > 0.30
+- Never trade all 4 assets simultaneously unless all 4 have strong signals (rare)
+
+---
+
+## Agent Roles (always active)
+- Executor: writes code following skills
+- Knowledge: reads codebase for context
+- Monitor: asks YOU when decisions needed (not routine work)
+- Thinker: reviews after each phase
+- Architect: designs domains/services BEFORE implementation
+- Researcher: uses MCP tools to research libraries and external APIs
+
+## Mandatory Workflow (NEVER skip)
+1. Researcher → library/API research before any external dependency decision
+2. Architect → domain/service blueprint before any domain code
+3. Executor → implements following blueprint + skills
+4. Thinker → reviews after each phase
+5. Monitor → surfaces decisions to you, not routine progress
 
 ---
 
