@@ -7,26 +7,22 @@
 
 ## Last Session Summary
 **Date:** 2026-03-10
-**Completed:** Phase 4 — ALL 16 Tasks DONE.
-**Branch:** `feature/phase4-infrastructures`
-**Worktree:** `.worktrees/feature-phase4`
+**Completed:** Phase 4 merged to main + Phase 5 plan written.
+**Branch:** `main` (phase4 merged, phase5 not started)
+**Worktree:** none (cleaned up)
 
 **What was done:**
-- Task 1: PostgreSQL adapter + schema migration
-- Task 2: Domain Reconstitute constructors (market, order, position)
-- Tasks 3-6: PostgreSQL repositories (pricing, marketwatch, trading, portfolio)
-- Task 7: Redis WindowStateStore
-- Tasks 8-11: CLOB HTTP client (auth, FeeRateProvider, OrderSubmitter, HeartbeatSender)
-- Task 12: Gamma API MarketSource
-- Tasks 13-15: WebSocket handlers (RTDS, Market, User)
-- Task 16: Config extension (PostgreSQL/CLOB/Gamma) + polymarket container providers
+- Phase 4 code review fixes (I-1 through I-4): env var rename, validation guards, WS comments, container comment
+- .env.example synced (POLY_FUNDER_ADDRESS, DATABASE_URL, CLOB_BASE_URL, GAMMA_BASE_URL)
+- Phase 4 merged to main, pushed, worktree removed
+- Phase 5 plan written: `docs/plans/2026-03-10-phase5-interfaces-plan.md`
 
-**Phase 4 is COMPLETE.**
+**Phase 4 is COMPLETE and merged.**
 
 ---
 
 ## Current Phase
-**Phase 5: Interfaces** — NOT STARTED
+**Phase 5: Interfaces** — PLAN WRITTEN, NOT STARTED
 
 ## Phase Checklist
 - [x] Phase 0: Project Setup
@@ -56,9 +52,9 @@
 
 ## Git State
 - Main branch: `main`
-- Feature branch: `feature/phase4-infrastructures`
-- Worktree: `.worktrees/feature-phase4`
-- Last commit: `feat(infra): extend config + wire polymarket providers into container`
+- Feature branch: `feature/phase5-interfaces` (NOT CREATED YET — create at session start)
+- Worktree: `.worktrees/feature-phase5` (NOT CREATED YET — create at session start)
+- Last commit on main: `feat(phase4): merge Phase 4 Infrastructures layer`
 
 ## Key Decisions — FINAL
 
@@ -135,9 +131,20 @@ Priority order (highest to lowest):
 ## Start Next Session With
 ```
 Read SESSION.md and CLAUDE.md. Check git log --oneline.
-Phase 4 is COMPLETE. Next: Phase 5 (Interfaces).
-Use superpowers:finishing-a-development-branch to wrap up feature/phase4-infrastructures first.
-Then write the Phase 5 plan using superpowers:writing-plans before any implementation.
-Phase 5 will implement: HTTP handlers for Polymarket trading bot operations,
-CLI entry points (cmd/bot/), and wiring all infrastructure adapters into the running bot.
+Phase 4 is COMPLETE and merged. Phase 5 plan is written.
+Plan: docs/plans/2026-03-10-phase5-interfaces-plan.md
+
+FIRST: create worktree
+  git worktree add .worktrees/feature-phase5 -b feature/phase5-interfaces
+
+THEN: use superpowers:executing-plans to execute the plan task-by-task.
+Plan has 8 tasks — execute in order, lint + test after each task.
+
+Key Phase 5 facts:
+- go-ethereum NOT yet in go.mod — Task 1 adds it
+- EIP-712 signer lives ONLY in internal/interfaces/signing/
+- PRIVATE_KEY env var — read from os.Getenv, never config struct
+- cmd/bot/ is composition root — allowed to import from all layers
+- clobOrderIDs: in-memory map[string]string (localID → clobOrderID) for cancel
+- 5 known gaps listed in plan under "Known Gaps to Resolve During Implementation"
 ```
