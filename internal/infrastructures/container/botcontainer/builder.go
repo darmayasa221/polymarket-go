@@ -103,6 +103,7 @@ func Build(cfg Config) (*BotContainer, error) {
 	feeProvider := clob.NewFeeRateProvider(clobClient)
 	submitter := clob.NewOrderSubmitter(clobClient)
 	sender := clob.NewHeartbeatSender(clobClient)
+	balanceProvider := clob.NewBalanceProvider(clobClient)
 
 	return &BotContainer{
 		RecordPrice:      recordprice.New(priceRepo),
@@ -129,6 +130,7 @@ func Build(cfg Config) (*BotContainer, error) {
 		OrderSubmitter:  submitter,
 		OrderRepository: orderRepo,
 		FeeRateProvider: feeProvider,
+		BalanceProvider: balanceProvider,
 
 		RTDSHandler:   rtds.New(rtds.RTDSEndpoint),
 		MarketHandler: wsmarket.New(wsmarket.MarketEndpoint),
@@ -138,11 +140,13 @@ func Build(cfg Config) (*BotContainer, error) {
 			_ = redisClient.Close()
 			return db.Close()
 		},
+
+		pgDB: db,
 	}, nil
 }
 
 // RunMigration runs the PostgreSQL schema migration.
-// Called from cmd/bot/main.go at startup.
-func (bc *BotContainer) RunMigration(ctx context.Context) error {
-	return nil // migration embedded in Phase 4 DB adapter; called separately if needed
+// Uses CREATE TABLE IF NOT EXISTS — safe to call on every startup.
+func (bc *BotContainer) RunMigration(_ context.Context) error {
+	return pgdb.RunMigrations(bc.pgDB.DB())
 }

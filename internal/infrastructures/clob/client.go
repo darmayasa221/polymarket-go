@@ -20,6 +20,22 @@ func NewClient(cfg Config) *Client {
 	return &Client{cfg: cfg, http: &http.Client{}}
 }
 
+// buildCLOBRequest creates an authenticated CLOB HTTP request with standard headers.
+func buildCLOBRequest(ctx context.Context, cfg Config, method, path string, bodyBytes []byte) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, cfg.BaseURL+path, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("clob: build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "@polymarket/clob-client")
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Connection", "keep-alive")
+	if err := setL2Headers(req, cfg, string(bodyBytes)); err != nil {
+		return nil, fmt.Errorf("clob: set auth headers: %w", err)
+	}
+	return req, nil
+}
+
 // do executes an authenticated CLOB request and decodes the JSON response into dst.
 // Pass nil dst to discard the response body.
 func (c *Client) do(ctx context.Context, method, path string, body, dst any) error {
@@ -32,14 +48,9 @@ func (c *Client) do(ctx context.Context, method, path string, body, dst any) err
 		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, c.cfg.BaseURL+path, bytes.NewReader(bodyBytes))
+	req, err := buildCLOBRequest(ctx, c.cfg, method, path, bodyBytes)
 	if err != nil {
-		return fmt.Errorf("clob: build request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	if err := setL2Headers(req, c.cfg, string(bodyBytes)); err != nil {
-		return fmt.Errorf("clob: set auth headers: %w", err)
+		return err
 	}
 
 	resp, err := c.http.Do(req)

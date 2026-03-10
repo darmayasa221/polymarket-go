@@ -56,9 +56,15 @@ func (r *runner) run(ctx context.Context) error {
 	}
 
 	conditionIDs := r.allConditionIDs(ctx)
-	marketCh, err := r.bc.MarketHandler.Start(ctx, conditionIDs)
-	if err != nil {
-		return fmt.Errorf("runner: start market WS: %w", err)
+	var marketCh <-chan market.MarketEvent
+	if len(conditionIDs) > 0 {
+		marketCh, err = r.bc.MarketHandler.Start(ctx, conditionIDs)
+		if err != nil {
+			return fmt.Errorf("runner: start market WS: %w", err)
+		}
+	} else {
+		log.Println("runner: no active markets yet — market WS skipped until next refresh")
+		marketCh = make(chan market.MarketEvent) // never closes, never sends
 	}
 
 	userCh, err := r.bc.UserHandler.Start(ctx, r.clobCfg)
@@ -90,19 +96,22 @@ func (r *runner) eventLoop(ctx context.Context, priceCh <-chan *oracle.Price, ma
 			return
 		case price, ok := <-priceCh:
 			if !ok {
+				log.Println("runner: RTDS price channel closed — exiting")
 				return
 			}
 			r.onPrice(ctx, price)
 		case ev, ok := <-marketCh:
 			if !ok {
+				log.Println("runner: market WS channel closed — exiting")
 				return
 			}
 			r.onMarketEvent(ctx, ev)
 		case ev, ok := <-userCh:
 			if !ok {
+				log.Println("runner: user WS channel closed — exiting")
 				return
 			}
-			log.Printf("runner: user event type=%s orderID=%s", ev.Type, ev.OrderID)
+			log.Printf("runner: user event type=%s order_type=%s status=%s orderID=%s", ev.EventType, ev.OrderType, ev.Status, ev.OrderID)
 		case <-heartbeatTicker.C:
 			if _, err := r.bc.Heartbeat.Execute(ctx, heartbeatdto.Input{}); err != nil {
 				log.Printf("runner: heartbeat: %v", err)

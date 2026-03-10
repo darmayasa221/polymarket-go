@@ -20,6 +20,7 @@ import (
 	startwindow "github.com/darmayasa221/polymarket-go/internal/applications/trading/commands/startwindow"
 	tradingports "github.com/darmayasa221/polymarket-go/internal/applications/trading/ports"
 	getwindowstate "github.com/darmayasa221/polymarket-go/internal/applications/trading/queries/getwindowstate"
+	pgdb "github.com/darmayasa221/polymarket-go/internal/infrastructures/databases/postgres"
 	wsmarket "github.com/darmayasa221/polymarket-go/internal/infrastructures/ws/market"
 	rtds "github.com/darmayasa221/polymarket-go/internal/infrastructures/ws/rtds"
 	wsuser "github.com/darmayasa221/polymarket-go/internal/infrastructures/ws/user"
@@ -57,6 +58,7 @@ type BotContainer struct {
 	OrderSubmitter  tradingports.OrderSubmitter
 	OrderRepository tradingports.OrderRepository
 	FeeRateProvider sharedports.FeeRateProvider
+	BalanceProvider sharedports.BalanceProvider
 
 	// WebSocket handler factories (cmd/bot calls .Start() with context)
 	RTDSHandler   *rtds.Handler
@@ -65,4 +67,7 @@ type BotContainer struct {
 
 	// Closer releases DB and Redis connections.
 	Close func() error
+
+	// pgDB is held for RunMigration.
+	pgDB *pgdb.DB
 }

@@ -25,17 +25,21 @@ func TestRTDSHandler_Start_ReceivesChainlinkPrice(t *testing.T) {
 		require.NoError(t, err)
 		defer conn.Close()
 
+		// RTDS wire format: top-level "topic" and "payload" fields.
+		// Chainlink symbol format: "btc/usd" (slash-separated pair).
+		inner, _ := json.Marshal(map[string]any{
+			"symbol":    "btc/usd",
+			"timestamp": time.Now().UnixMilli(),
+			"value":     65000.50,
+		})
 		msg, _ := json.Marshal(map[string]any{
-			"event_type": "crypto_prices_chainlink",
-			"data": map[string]string{
-				"asset":      "btc",
-				"price":      "65000.50",
-				"rounded_at": "2026-03-10T12:00:00Z",
-			},
+			"topic":   "crypto_prices_chainlink",
+			"type":    "*",
+			"payload": json.RawMessage(inner),
 		})
 		_ = conn.WriteMessage(websocket.TextMessage, msg)
 
-		// keep alive until client disconnects
+		// Keep alive until client disconnects.
 		for {
 			if _, _, err := conn.ReadMessage(); err != nil {
 				return

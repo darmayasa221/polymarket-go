@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,40 +16,51 @@ import (
 func TestMarketSource_FetchActive5mMarkets(t *testing.T) {
 	t.Parallel()
 
-	payload := []map[string]any{
-		{
-			"id":          "event-1",
-			"slug":        "btc-updown-5m-1741996800",
-			"conditionId": "0xabc123",
-			"tokens": []map[string]string{
-				{"outcome": "Up", "token_id": "tok-up-1"},
-				{"outcome": "Down", "token_id": "tok-down-1"},
-			},
-			"minimum_tick_size": "0.01",
-			"fees_enabled":      true,
-			"enable_order_book": true,
-			"closed":            false,
-		},
-		{
-			// closed market — should be excluded
-			"id":          "event-2",
-			"slug":        "eth-updown-5m-1741996800",
-			"conditionId": "0xdef456",
-			"tokens": []map[string]string{
-				{"outcome": "Up", "token_id": "tok-up-2"},
-				{"outcome": "Down", "token_id": "tok-down-2"},
-			},
-			"minimum_tick_size": "0.01",
-			"fees_enabled":      true,
-			"enable_order_book": true,
-			"closed":            true,
-		},
-	}
-
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/events", r.URL.Path)
-		assert.Equal(t, "102892", r.URL.Query().Get("tag"))
-		assert.Equal(t, "false", r.URL.Query().Get("closed"))
+		slugs := r.URL.Query()["slug"]
+		require.NotEmpty(t, slugs, "expected slug query params")
+
+		// Find the BTC slug from the request to use in the response.
+		btcSlug := ""
+		for _, s := range slugs {
+			if strings.HasPrefix(s, "btc-updown-5m-") {
+				btcSlug = s
+				break
+			}
+		}
+		require.NotEmpty(t, btcSlug, "btc slug not found in query")
+
+		// Gamma API returns []gammaEvent; each event has a nested markets[] array.
+		// outcomes and clobTokenIds are JSON-encoded strings (double-encoded).
+		payload := []map[string]any{
+			{
+				"id":     "event-1",
+				"slug":   btcSlug,
+				"closed": false,
+				"markets": []map[string]any{
+					{
+						"id":                    "inner-1",
+						"conditionId":           "0xabc123",
+						"slug":                  btcSlug,
+						"outcomes":              `["Up","Down"]`,
+						"clobTokenIds":          `["tok-up-1","tok-down-1"]`,
+						"orderPriceMinTickSize": 0.01,
+						"enableOrderBook":       true,
+						"active":                true,
+						"closed":                false,
+					},
+				},
+			},
+			{
+				// closed event — should be excluded
+				"id":      "event-2",
+				"slug":    "eth-updown-5m-0",
+				"closed":  true,
+				"markets": []map[string]any{},
+			},
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(payload)
 	}))
@@ -58,7 +70,7 @@ func TestMarketSource_FetchActive5mMarkets(t *testing.T) {
 	markets, err := src.FetchActive5mMarkets(t.Context())
 	require.NoError(t, err)
 
-	// only the open market should be returned
+	// Only the open BTC market should be returned.
 	require.Len(t, markets, 1)
 	m := markets[0]
 	assert.Equal(t, "btc", string(m.Asset()))

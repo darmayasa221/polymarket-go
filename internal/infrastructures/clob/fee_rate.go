@@ -31,6 +31,9 @@ func (p *FeeRateProvider) FetchFeeRate(ctx context.Context, tokenID string) (uin
 	if err != nil {
 		return 0, fmt.Errorf("clob fee-rate: build request: %w", err)
 	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "@polymarket/clob-client")
+	req.Header.Set("Accept", "*/*")
 	if err := setL2Headers(req, p.client.cfg, ""); err != nil {
 		return 0, err
 	}

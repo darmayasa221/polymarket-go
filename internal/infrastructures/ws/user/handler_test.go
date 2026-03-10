@@ -28,7 +28,7 @@ func validCLOBConfig(baseURL string) clob.Config {
 	}
 }
 
-func TestUserHandler_Start_ReceivesOrderFilled(t *testing.T) {
+func TestUserHandler_Start_ReceivesOrderCancellation(t *testing.T) {
 	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -39,11 +39,13 @@ func TestUserHandler_Start_ReceivesOrderFilled(t *testing.T) {
 		// read subscription message
 		_, _, _ = conn.ReadMessage()
 
+		// Send a real Polymarket user WS message:
+		// id and market are top-level, event_type is "order", type is "CANCELLATION".
 		msg, _ := json.Marshal(map[string]any{
-			"event_type": "order_filled",
-			"data": map[string]string{
-				"id": "order-abc",
-			},
+			"event_type": "order",
+			"type":       "CANCELLATION",
+			"id":         "order-abc",
+			"market":     "0xdeadbeef",
 		})
 		_ = conn.WriteMessage(websocket.TextMessage, msg)
 
@@ -65,8 +67,10 @@ func TestUserHandler_Start_ReceivesOrderFilled(t *testing.T) {
 
 	select {
 	case evt := <-ch:
-		require.Equal(t, wsuser.EventOrderFilled, evt.Type)
+		require.Equal(t, wsuser.EventOrder, evt.EventType)
+		require.Equal(t, wsuser.OrderCancellation, evt.OrderType)
 		require.Equal(t, "order-abc", evt.OrderID)
+		require.Equal(t, "0xdeadbeef", evt.Market)
 	case <-time.After(2 * time.Second):
 		t.Fatal("timeout waiting for user event")
 	}

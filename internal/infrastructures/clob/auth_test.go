@@ -10,17 +10,18 @@ import (
 	"github.com/darmayasa221/polymarket-go/internal/infrastructures/clob"
 )
 
-// validTestSecret returns a base64-encoded 32-byte key for tests.
+// validTestSecret returns a URL-safe base64-encoded 32-byte key for tests.
+// Polymarket API secrets use URL-safe base64 (with _ instead of /).
 func validTestSecret() string {
-	return base64.StdEncoding.EncodeToString(make([]byte, 32))
+	return base64.URLEncoding.EncodeToString(make([]byte, 32))
 }
 
 func TestBuildL2Signature(t *testing.T) {
 	t.Parallel()
 	sig, err := clob.BuildL2Signature(validTestSecret(), "1741612800", "GET", "/fee-rate", "")
 	require.NoError(t, err)
-	// Result must be valid base64 encoding a 32-byte HMAC-SHA256.
-	decoded, decErr := base64.StdEncoding.DecodeString(sig)
+	// Signature output is URL-safe base64 encoding a 32-byte HMAC-SHA256.
+	decoded, decErr := base64.URLEncoding.DecodeString(sig)
 	require.NoError(t, decErr)
 	assert.Len(t, decoded, 32)
 }

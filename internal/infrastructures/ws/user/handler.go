@@ -4,12 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/gorilla/websocket"
 
-	"github.com/darmayasa221/polymarket-go/internal/commons/timeutil"
 	"github.com/darmayasa221/polymarket-go/internal/infrastructures/clob"
 )
 
@@ -32,19 +30,15 @@ func (h *Handler) Start(ctx context.Context, cfg clob.Config) (<-chan UserEvent,
 	if err != nil {
 		return nil, fmt.Errorf("user ws: dial: %w", err)
 	}
-	timestamp := strconv.FormatInt(timeutil.Now().Unix(), 10)
-	sig, err := clob.BuildL2Signature(cfg.APISecret, timestamp, "GET", "/ws/user", "")
-	if err != nil {
-		conn.Close()
-		return nil, fmt.Errorf("user ws: build auth: %w", err)
-	}
+	// User channel auth uses raw credentials nested in an "auth" object.
+	// See: https://docs.polymarket.com/developers/CLOB/websocket/user-channel
 	sub := map[string]any{
-		"type":       "user",
-		"apiKey":     cfg.APIKey,
-		"secret":     cfg.APISecret,
-		"passphrase": cfg.APIPassphrase,
-		"timestamp":  timestamp,
-		"signature":  sig,
+		"type": "user",
+		"auth": map[string]any{
+			"apiKey":     cfg.APIKey,
+			"secret":     cfg.APISecret,
+			"passphrase": cfg.APIPassphrase,
+		},
 	}
 	if err := conn.WriteJSON(sub); err != nil {
 		conn.Close()
@@ -101,23 +95,29 @@ func readUserLoop(ctx context.Context, conn *websocket.Conn, out chan<- UserEven
 }
 
 func handleUserMessage(raw []byte, out chan<- UserEvent) {
-	var env struct {
-		EventType string          `json:"event_type"`
-		Data      json.RawMessage `json:"data"`
+	// All user WS messages have top-level event_type, id, market, type, status.
+	// See: https://docs.polymarket.com/market-data/websocket/user-channel
+	var msg struct {
+		EventType string `json:"event_type"`
+		Type      string `json:"type"`   // "PLACEMENT", "CANCELLATION", "MATCHED", etc.
+		Status    string `json:"status"` // trade status: "MATCHED", "CONFIRMED", etc.
+		ID        string `json:"id"`
+		Market    string `json:"market"`
 	}
-	if err := json.Unmarshal(raw, &env); err != nil {
+	if err := json.Unmarshal(raw, &msg); err != nil {
 		return
 	}
-	switch EventType(env.EventType) {
-	case EventOrderFilled, EventOrderCanceled:
-		var payload struct {
-			ID string `json:"id"`
-		}
-		if err := json.Unmarshal(env.Data, &payload); err != nil {
-			return
-		}
+	ev := UserEvent{
+		EventType: EventType(msg.EventType),
+		OrderType: OrderType(msg.Type),
+		Status:    TradeStatus(msg.Status),
+		OrderID:   msg.ID,
+		Market:    msg.Market,
+	}
+	switch ev.EventType {
+	case EventTrade, EventOrder:
 		select {
-		case out <- UserEvent{Type: EventType(env.EventType), OrderID: payload.ID}:
+		case out <- ev:
 		default:
 		}
 	}

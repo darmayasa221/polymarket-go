@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -12,14 +13,15 @@ import (
 
 	marketwatchports "github.com/darmayasa221/polymarket-go/internal/applications/marketwatch/ports"
 	"github.com/darmayasa221/polymarket-go/internal/commons/polyid"
+	"github.com/darmayasa221/polymarket-go/internal/commons/timeutil"
 	"github.com/darmayasa221/polymarket-go/internal/domains/market"
 )
 
 // Compile-time assertion: MarketSource implements marketwatchports.MarketSource.
 var _ marketwatchports.MarketSource = (*MarketSource)(nil)
 
-// tag5m is the Gamma API tag ID for 5-minute markets.
-const tag5m = "102892"
+// trackedAssets are the four tickers the bot trades.
+var trackedAssets = []string{"btc", "eth", "sol", "xrp"}
 
 // MarketSource fetches active 5-minute markets from the Polymarket Gamma API.
 type MarketSource struct {
@@ -32,25 +34,35 @@ func NewMarketSource(cfg Config) *MarketSource {
 	return &MarketSource{cfg: cfg, client: &http.Client{Timeout: 10 * time.Second}}
 }
 
-type gammaToken struct {
-	Outcome string `json:"outcome"`
-	TokenID string `json:"token_id"`
+// gammaInnerMarket is the nested market object inside a Gamma API event response.
+// Fields confirmed against https://docs.polymarket.com/api-reference/events/list-events
+type gammaInnerMarket struct {
+	ID                string  `json:"id"`
+	ConditionID       string  `json:"conditionId"`
+	Slug              string  `json:"slug"`
+	Outcomes          string  `json:"outcomes"`     // JSON-encoded string: "[\"Up\",\"Down\"]"
+	ClobTokenIDs      string  `json:"clobTokenIds"` // JSON-encoded string: "[\"id1\",\"id2\"]"
+	OrderPriceMinTick float64 `json:"orderPriceMinTickSize"`
+	EnableOrderBook   bool    `json:"enableOrderBook"`
+	Active            bool    `json:"active"`
+	Closed            bool    `json:"closed"`
 }
 
+// gammaEvent is the top-level event returned by GET /events?slug=...
 type gammaEvent struct {
-	ID          string       `json:"id"`
-	Slug        string       `json:"slug"`
-	ConditionID string       `json:"conditionId"`
-	Tokens      []gammaToken `json:"tokens"`
-	TickSize    string       `json:"minimum_tick_size"`
-	FeeEnabled  bool         `json:"fees_enabled"`
-	Closed      bool         `json:"closed"`
+	ID      string             `json:"id"`
+	Slug    string             `json:"slug"`
+	Closed  bool               `json:"closed"`
+	Markets []gammaInnerMarket `json:"markets"`
 }
 
-// FetchActive5mMarkets calls GET /events?tag=102892&closed=false and returns open markets.
+// FetchActive5mMarkets calls GET /events?slug=btc-updown-5m-{ts}&slug=eth-... for the
+// current window boundary and returns open markets for all tracked assets.
 func (s *MarketSource) FetchActive5mMarkets(ctx context.Context) ([]*market.Market, error) {
-	url := s.cfg.BaseURL + "/events?tag=" + tag5m + "&closed=false"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	slugs := currentWindowSlugs()
+	apiURL := s.cfg.BaseURL + "/events?" + buildSlugQuery(slugs)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("gamma: build request: %w", err)
 	}
@@ -67,48 +79,74 @@ func (s *MarketSource) FetchActive5mMarkets(ctx context.Context) ([]*market.Mark
 
 	markets := make([]*market.Market, 0, len(events))
 	for _, e := range events {
-		if e.Closed {
+		if e.Closed || len(e.Markets) == 0 {
 			continue
 		}
 		m, err := buildMarket(e)
 		if err != nil {
-			return nil, fmt.Errorf("gamma: build market %q: %w", e.ID, err)
+			continue // skip unparseable events rather than aborting all
 		}
 		markets = append(markets, m)
+	}
+
+	if len(markets) == 0 {
+		return nil, fmt.Errorf("gamma: no active 5m markets found for slugs %v", slugs)
 	}
 	return markets, nil
 }
 
+// Slug pattern: {ticker}-updown-5m-{floor(unix/300)*300}.
+func currentWindowSlugs() []string {
+	now := timeutil.Now().Unix()
+	boundary := now - (now % 300)
+	slugs := make([]string, len(trackedAssets))
+	for i, asset := range trackedAssets {
+		slugs[i] = fmt.Sprintf("%s-updown-5m-%d", asset, boundary)
+	}
+	return slugs
+}
+
+// buildSlugQuery constructs query string "slug=btc-...&slug=eth-...".
+func buildSlugQuery(slugs []string) string {
+	vals := make(url.Values)
+	for _, s := range slugs {
+		vals.Add("slug", s)
+	}
+	return vals.Encode()
+}
+
 // buildMarket converts a gammaEvent into a domain market.Market via Reconstitute.
 func buildMarket(e gammaEvent) (*market.Market, error) {
-	asset, err := assetFromSlug(e.Slug)
+	inner := e.Markets[0]
+
+	asset, err := assetFromSlug(inner.Slug)
 	if err != nil {
 		return nil, err
 	}
-	windowStart, err := windowStartFromSlug(e.Slug)
+	windowStart, err := windowStartFromSlug(inner.Slug)
 	if err != nil {
 		return nil, err
 	}
-	upTokenID, downTokenID, err := tokenIDs(e.Tokens)
+	upTokenID, downTokenID, err := tokenIDsFromClobIDs(inner.ClobTokenIDs, inner.Outcomes)
 	if err != nil {
 		return nil, err
 	}
 
-	tickSize, err := decimal.NewFromString(e.TickSize)
-	if err != nil {
-		return nil, fmt.Errorf("gamma: invalid tick_size %q: %w", e.TickSize, err)
+	tickSize := decimal.NewFromFloat(inner.OrderPriceMinTick)
+	if tickSize.IsZero() {
+		tickSize = decimal.NewFromFloat(0.01) // safe default
 	}
 
 	return market.Reconstitute(market.ReconstitutedParams{
-		ID:          e.ID,
+		ID:          inner.ID,
 		Asset:       asset,
 		WindowStart: windowStart,
-		ConditionID: polyid.ConditionID(e.ConditionID),
+		ConditionID: polyid.ConditionID(inner.ConditionID),
 		UpTokenID:   upTokenID,
 		DownTokenID: downTokenID,
 		TickSize:    tickSize,
-		FeeEnabled:  e.FeeEnabled,
-		Active:      true,
+		FeeEnabled:  inner.EnableOrderBook,
+		Active:      inner.Active && !inner.Closed,
 	}), nil
 }
 
@@ -136,18 +174,31 @@ func windowStartFromSlug(slug string) (time.Time, error) {
 	return time.Unix(ts, 0).UTC(), nil
 }
 
-// tokenIDs extracts Up/Down token IDs from the tokens array.
-func tokenIDs(tokens []gammaToken) (up, down polyid.TokenID, err error) {
-	for _, t := range tokens {
-		switch t.Outcome {
+// tokenIDsFromClobIDs extracts Up/Down token IDs from the JSON-encoded clobTokenIds string.
+// outcomes is also JSON-encoded: "[\"Up\",\"Down\"]"
+// clobTokenIds order matches outcomes order.
+func tokenIDsFromClobIDs(clobTokenIDsJSON, outcomesJSON string) (up, down polyid.TokenID, err error) {
+	var tokenIDs []string
+	if err = json.Unmarshal([]byte(clobTokenIDsJSON), &tokenIDs); err != nil {
+		return "", "", fmt.Errorf("parse clobTokenIds: %w", err)
+	}
+	var outcomes []string
+	if err = json.Unmarshal([]byte(outcomesJSON), &outcomes); err != nil {
+		return "", "", fmt.Errorf("parse outcomes: %w", err)
+	}
+	if len(tokenIDs) != len(outcomes) || len(tokenIDs) < 2 {
+		return "", "", fmt.Errorf("mismatched tokenIds/outcomes lengths: %d vs %d", len(tokenIDs), len(outcomes))
+	}
+	for i, outcome := range outcomes {
+		switch outcome {
 		case "Up":
-			up = polyid.TokenID(t.TokenID)
+			up = polyid.TokenID(tokenIDs[i])
 		case "Down":
-			down = polyid.TokenID(t.TokenID)
+			down = polyid.TokenID(tokenIDs[i])
 		}
 	}
 	if up == "" || down == "" {
-		return "", "", fmt.Errorf("missing Up or Down token in event tokens")
+		return "", "", fmt.Errorf("missing Up or Down token in outcomes %v", outcomes)
 	}
 	return up, down, nil
 }

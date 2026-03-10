@@ -17,14 +17,17 @@ import (
 //
 // Returns the result as a base64-encoded string.
 func BuildL2Signature(apiSecret, timestamp, method, requestPath, body string) (string, error) {
-	key, err := base64.StdEncoding.DecodeString(apiSecret)
+	// Polymarket derives secrets with URL-safe base64 (uses _ instead of /).
+	key, err := base64.URLEncoding.DecodeString(apiSecret)
 	if err != nil {
 		return "", fmt.Errorf("clob: decode api secret: %w", err)
 	}
 	message := timestamp + method + requestPath + body
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(message))
-	return base64.StdEncoding.EncodeToString(mac.Sum(nil)), nil
+	// Output must be URL-safe base64 (replaces + with - and / with _).
+	// Reference: https://github.com/Polymarket/clob-client/blob/main/src/signing/hmac.ts
+	return base64.URLEncoding.EncodeToString(mac.Sum(nil)), nil
 }
 
 // setL2Headers adds the 5 required L2 auth headers to req.
