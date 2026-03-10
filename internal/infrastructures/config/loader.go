@@ -64,7 +64,7 @@ func postgresqlConfig() PostgreSQLConfig {
 func clobConfig() CLOBConfig {
 	return CLOBConfig{
 		BaseURL:       getOrDefault("CLOB_BASE_URL", "https://clob.polymarket.com"),
-		Address:       viper.GetString("FUNDER_ADDRESS"),
+		Address:       viper.GetString("POLY_FUNDER_ADDRESS"),
 		APIKey:        viper.GetString("POLY_API_KEY"),
 		APISecret:     viper.GetString("POLY_API_SECRET"),
 		APIPassphrase: viper.GetString("POLY_API_PASSPHRASE"),

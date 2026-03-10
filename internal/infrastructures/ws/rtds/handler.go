@@ -81,6 +81,7 @@ func (h *Handler) readLoop(ctx context.Context, conn *websocket.Conn, out chan<-
 	for {
 		select {
 		case <-ctx.Done():
+			// defer conn.Close() will unblock pumpMessages' ReadMessage call.
 			return
 		case <-pingTicker.C:
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {

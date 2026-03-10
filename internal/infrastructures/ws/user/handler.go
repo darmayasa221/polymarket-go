@@ -85,6 +85,7 @@ func readUserLoop(ctx context.Context, conn *websocket.Conn, out chan<- UserEven
 	for {
 		select {
 		case <-ctx.Done():
+			// defer conn.Close() will unblock pumpMessages' ReadMessage call.
 			return
 		case <-pingTicker.C:
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {

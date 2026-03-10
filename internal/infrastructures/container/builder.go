@@ -12,6 +12,9 @@ import (
 // Build wires every provider in dependency order and returns a fully populated Container.
 // On any error, already-opened resources are closed before returning.
 // The logger parameter is reserved for provider startup diagnostics (e.g. "database connected").
+//
+// Polymarket-specific providers (PostgreSQL, CLOB, Gamma, WebSocket handlers) are defined in
+// providers/polymarket.go and wired into the bot entry point during Phase 5 (Interfaces).
 func Build(cfg *config.Config, _ *logging.Logger) (*Container, error) {
 	db, err := providers.ProvideDatabase(cfg)
 	if err != nil {
