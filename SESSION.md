@@ -7,50 +7,58 @@
 
 ## Last Session Summary
 **Date:** 2026-03-10
-**Completed:** Phase 3 — ALL 11 Tasks DONE.
-**Branch:** `feature/phase3-applications`
-**Worktree:** `.worktrees/feature-phase3`
+**Completed:** Phase 4 — ALL 16 Tasks DONE.
+**Branch:** `feature/phase4-infrastructures`
+**Worktree:** `.worktrees/feature-phase4`
 
 **What was done:**
-- Task 9: CloseWindow (6 tests green) + GetWindowState (4 tests green) — committed
-- Task 10: Portfolio context — all 5 use cases (21 tests green) — committed
-- Task 11: Full integration build + lint — all clean, CLAUDE.md updated — committed
+- Task 1: PostgreSQL adapter + schema migration
+- Task 2: Domain Reconstitute constructors (market, order, position)
+- Tasks 3-6: PostgreSQL repositories (pricing, marketwatch, trading, portfolio)
+- Task 7: Redis WindowStateStore
+- Tasks 8-11: CLOB HTTP client (auth, FeeRateProvider, OrderSubmitter, HeartbeatSender)
+- Task 12: Gamma API MarketSource
+- Tasks 13-15: WebSocket handlers (RTDS, Market, User)
+- Task 16: Config extension (PostgreSQL/CLOB/Gamma) + polymarket container providers
 
-**Phase 3 is COMPLETE.**
+**Phase 4 is COMPLETE.**
 
 ---
 
 ## Current Phase
-**Phase 4: Infrastructures** — NOT STARTED
+**Phase 5: Interfaces** — NOT STARTED
 
 ## Phase Checklist
 - [x] Phase 0: Project Setup
 - [x] Phase 1: Commons
 - [x] Phase 2: Domains
 - [x] Phase 3: Applications
-  - [x] Research complete
-  - [x] Architecture complete
-  - [x] Task 1: shared/ (windowstate, signal, feecalc, FeeRateProvider port)
-  - [x] Task 2: pricing/ports/price_repository.go
-  - [x] Task 3: pricing RecordPrice command
-  - [x] Task 4: pricing GetCurrentSignal query
-  - [x] Task 5: pricing ComputeFee query (formula: p*(1-p)*0.0625)
-  - [x] Task 6: marketwatch ports + RefreshMarkets
-  - [x] Task 7: marketwatch UpdateTickSize + GetActiveMarket + IsMarketTradeable
-  - [x] Task 8: trading ports + StartWindow + Heartbeat
-  - [x] Task 9: trading PlaceOrder + CancelOrder + CloseWindow + GetWindowState
-  - [x] Task 10: portfolio context (all 5 commands/queries)
-  - [x] Task 11: full integration build + lint + update CLAUDE.md/SESSION.md
-- [ ] Phase 4: Infrastructures
+- [x] Phase 4: Infrastructures
+  - [x] Task 1: PostgreSQL adapter + schema
+  - [x] Task 2: Domain Reconstitute constructors
+  - [x] Task 3: Price repository (PostgreSQL)
+  - [x] Task 4: Market repository (PostgreSQL)
+  - [x] Task 5: Order repository (PostgreSQL)
+  - [x] Task 6: Position repository (PostgreSQL)
+  - [x] Task 7: Redis WindowStateStore
+  - [x] Task 8: CLOB HTTP client base (L2 auth)
+  - [x] Task 9: FeeRateProvider
+  - [x] Task 10: OrderSubmitter
+  - [x] Task 11: HeartbeatSender
+  - [x] Task 12: Gamma API MarketSource
+  - [x] Task 13: RTDS WebSocket handler
+  - [x] Task 14: Market WebSocket handler
+  - [x] Task 15: User WebSocket handler
+  - [x] Task 16: Config + container wiring + full build
 - [ ] Phase 5: Interfaces
 
 ---
 
 ## Git State
 - Main branch: `main`
-- Feature branch: `feature/phase3-applications`
-- Worktree: `.worktrees/feature-phase3`
-- Last commit: `chore(progress): mark Phase 3 complete in CLAUDE.md and SESSION.md`
+- Feature branch: `feature/phase4-infrastructures`
+- Worktree: `.worktrees/feature-phase4`
+- Last commit: `feat(infra): extend config + wire polymarket providers into container`
 
 ## Key Decisions — FINAL
 
@@ -127,10 +135,9 @@ Priority order (highest to lowest):
 ## Start Next Session With
 ```
 Read SESSION.md and CLAUDE.md. Check git log --oneline.
-Phase 3 is COMPLETE. Next: Phase 4 (Infrastructures).
-Use superpowers:finishing-a-development-branch to wrap up feature/phase3-applications first.
-Then write the Phase 4 plan using superpowers:writing-plans before any implementation.
-Phase 4 will implement: repository adapters (PostgreSQL/Redis),
-CLOB HTTP client, WebSocket listeners (market/user/RTDS),
-Chainlink reader, heartbeat service, and chain-reading infrastructure.
+Phase 4 is COMPLETE. Next: Phase 5 (Interfaces).
+Use superpowers:finishing-a-development-branch to wrap up feature/phase4-infrastructures first.
+Then write the Phase 5 plan using superpowers:writing-plans before any implementation.
+Phase 5 will implement: HTTP handlers for Polymarket trading bot operations,
+CLI entry points (cmd/bot/), and wiring all infrastructure adapters into the running bot.
 ```

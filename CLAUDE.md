@@ -5,7 +5,7 @@
 - [x] Phase 1: Commons
 - [x] Phase 2: Domains
 - [x] Phase 3: Applications
-- [ ] Phase 4: Infrastructures
+- [x] Phase 4: Infrastructures
 - [ ] Phase 5: Interfaces
 
 ## Project
