@@ -7,22 +7,31 @@
 
 ## Last Session Summary
 **Date:** 2026-03-10
-**Completed:** Phase 4 merged to main + Phase 5 plan written.
-**Branch:** `main` (phase4 merged, phase5 not started)
-**Worktree:** none (cleaned up)
+**Completed:** Phase 5 Interfaces — all 8 tasks done, all tests pass.
+**Branch:** `feature/phase5-interfaces`
+**Worktree:** `.worktrees/feature-phase5`
 
 **What was done:**
-- Phase 4 code review fixes (I-1 through I-4): env var rename, validation guards, WS comments, container comment
-- .env.example synced (POLY_FUNDER_ADDRESS, DATABASE_URL, CLOB_BASE_URL, GAMMA_BASE_URL)
-- Phase 4 merged to main, pushed, worktree removed
-- Phase 5 plan written: `docs/plans/2026-03-10-phase5-interfaces-plan.md`
+- Task 1+2: go-ethereum v1.15.7 added; EIP-712 Signer in `internal/interfaces/signing/` (3 tests pass)
+- Task 3: BotContainer in `internal/infrastructures/container/botcontainer/` — wires all 17 use cases, 3 WS handlers, CLOB adapters
+- Tasks 4-7: `cmd/bot/` — window.go, exit.go, runner.go, main.go — full trading loop
+- Task 8: SESSION.md + CLAUDE.md updated; Phase 5 marked complete
 
-**Phase 4 is COMPLETE and merged.**
+**Key corrections applied vs plan:**
+- `computefee.New()` takes zero params (pure math)
+- `recordpricedto.Input` uses oracle.Price getters (Asset/Source/Value/RoundedAt/ReceivedAt)
+- `PositionDTO.PositionID` not `.ID`; no `.ClosedAt` field
+- `chooseOrder()` side always "buy" — removed unparam return
+- `eventLoop()` returns nothing (always nil — unparam fix)
+- `windowstate.WindowOpen` constant used for Status comparison
+- `nolint:gocognit` + `nolint:nilerr` where structurally justified
+
+**Phase 5 is COMPLETE. Pending: merge to main.**
 
 ---
 
 ## Current Phase
-**Phase 5: Interfaces** — PLAN WRITTEN, NOT STARTED
+**Phase 5: Interfaces** — COMPLETE, PENDING MERGE TO MAIN
 
 ## Phase Checklist
 - [x] Phase 0: Project Setup
@@ -46,15 +55,24 @@
   - [x] Task 14: Market WebSocket handler
   - [x] Task 15: User WebSocket handler
   - [x] Task 16: Config + container wiring + full build
-- [ ] Phase 5: Interfaces
+- [x] Phase 5: Interfaces
+  - [x] Task 1: go-ethereum v1.15.7 dependency
+  - [x] Task 2: EIP-712 EOA signer (internal/interfaces/signing/)
+  - [x] Task 3: Bot DI container (internal/infrastructures/container/botcontainer/)
+  - [x] Task 4: Window opener (cmd/bot/window.go)
+  - [x] Task 5: Exit monitor (cmd/bot/exit.go)
+  - [x] Task 6: Bot runner (cmd/bot/runner.go)
+  - [x] Task 7: Entry point (cmd/bot/main.go)
+  - [x] Task 8: Progress notes
 
 ---
 
 ## Git State
 - Main branch: `main`
-- Feature branch: `feature/phase5-interfaces` (NOT CREATED YET — create at session start)
-- Worktree: `.worktrees/feature-phase5` (NOT CREATED YET — create at session start)
-- Last commit on main: `feat(phase4): merge Phase 4 Infrastructures layer`
+- Feature branch: `feature/phase5-interfaces` — 4 commits ahead of main
+- Worktree: `.worktrees/feature-phase5`
+- Last commit: `feat(bot): add window opener, exit monitor, runner, and entry point`
+- Next: merge feature/phase5-interfaces → main and clean up worktree
 
 ## Key Decisions — FINAL
 
@@ -131,20 +149,15 @@ Priority order (highest to lowest):
 ## Start Next Session With
 ```
 Read SESSION.md and CLAUDE.md. Check git log --oneline.
-Phase 4 is COMPLETE and merged. Phase 5 plan is written.
-Plan: docs/plans/2026-03-10-phase5-interfaces-plan.md
+Phase 5 is COMPLETE on branch feature/phase5-interfaces.
 
-FIRST: create worktree
-  git worktree add .worktrees/feature-phase5 -b feature/phase5-interfaces
+FIRST: merge to main and clean up worktree:
+  cd /Users/darmayasa/Dev/projects/polymarket-go
+  git checkout main
+  git merge feature/phase5-interfaces
+  git push origin main
+  git worktree remove .worktrees/feature-phase5
+  git branch -d feature/phase5-interfaces
 
-THEN: use superpowers:executing-plans to execute the plan task-by-task.
-Plan has 8 tasks — execute in order, lint + test after each task.
-
-Key Phase 5 facts:
-- go-ethereum NOT yet in go.mod — Task 1 adds it
-- EIP-712 signer lives ONLY in internal/interfaces/signing/
-- PRIVATE_KEY env var — read from os.Getenv, never config struct
-- cmd/bot/ is composition root — allowed to import from all layers
-- clobOrderIDs: in-memory map[string]string (localID → clobOrderID) for cancel
-- 5 known gaps listed in plan under "Known Gaps to Resolve During Implementation"
+Use superpowers:finishing-a-development-branch to guide completion.
 ```
