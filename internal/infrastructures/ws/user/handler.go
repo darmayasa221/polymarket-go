@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/darmayasa221/polymarket-go/internal/commons/timeutil"
 	"github.com/darmayasa221/polymarket-go/internal/infrastructures/clob"
 )
 
@@ -31,7 +32,7 @@ func (h *Handler) Start(ctx context.Context, cfg clob.Config) (<-chan UserEvent,
 	if err != nil {
 		return nil, fmt.Errorf("user ws: dial: %w", err)
 	}
-	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	timestamp := strconv.FormatInt(timeutil.Now().Unix(), 10)
 	sig, err := clob.BuildL2Signature(cfg.APISecret, timestamp, "GET", "/ws/user", "")
 	if err != nil {
 		conn.Close()
@@ -54,6 +55,23 @@ func (h *Handler) Start(ctx context.Context, cfg clob.Config) (<-chan UserEvent,
 	return out, nil
 }
 
+// pumpMessages reads raw WebSocket frames and forwards them to msgCh until
+// the connection closes or ctx is done.
+func pumpMessages(ctx context.Context, conn *websocket.Conn, msgCh chan<- []byte) {
+	for {
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			close(msgCh)
+			return
+		}
+		select {
+		case msgCh <- msg:
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func readUserLoop(ctx context.Context, conn *websocket.Conn, out chan<- UserEvent) {
 	defer close(out)
 	defer conn.Close()
@@ -62,16 +80,7 @@ func readUserLoop(ctx context.Context, conn *websocket.Conn, out chan<- UserEven
 	defer pingTicker.Stop()
 
 	msgCh := make(chan []byte, 16)
-	go func() {
-		for {
-			_, msg, err := conn.ReadMessage()
-			if err != nil {
-				close(msgCh)
-				return
-			}
-			msgCh <- msg
-		}
-	}()
+	go pumpMessages(ctx, conn, msgCh)
 
 	for {
 		select {

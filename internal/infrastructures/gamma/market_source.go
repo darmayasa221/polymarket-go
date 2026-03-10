@@ -94,6 +94,11 @@ func buildMarket(e gammaEvent) (*market.Market, error) {
 		return nil, err
 	}
 
+	tickSize, err := decimal.NewFromString(e.TickSize)
+	if err != nil {
+		return nil, fmt.Errorf("gamma: invalid tick_size %q: %w", e.TickSize, err)
+	}
+
 	return market.Reconstitute(market.ReconstitutedParams{
 		ID:          e.ID,
 		Asset:       asset,
@@ -101,7 +106,7 @@ func buildMarket(e gammaEvent) (*market.Market, error) {
 		ConditionID: polyid.ConditionID(e.ConditionID),
 		UpTokenID:   upTokenID,
 		DownTokenID: downTokenID,
-		TickSize:    mustDecimal(e.TickSize),
+		TickSize:    tickSize,
 		FeeEnabled:  e.FeeEnabled,
 		Active:      true,
 	}), nil
@@ -145,13 +150,4 @@ func tokenIDs(tokens []gammaToken) (up, down polyid.TokenID, err error) {
 		return "", "", fmt.Errorf("missing Up or Down token in event tokens")
 	}
 	return up, down, nil
-}
-
-// mustDecimal parses a decimal string; panics on invalid input (Gamma values are always valid).
-func mustDecimal(s string) decimal.Decimal {
-	d, err := decimal.NewFromString(s)
-	if err != nil {
-		panic(fmt.Sprintf("gamma: invalid decimal %q: %v", s, err))
-	}
-	return d
 }

@@ -14,6 +14,26 @@ import (
 	tradingredisrepo "github.com/darmayasa221/polymarket-go/internal/infrastructures/repositories/trading/redis"
 )
 
+// ProvidePostgresDB opens a PostgreSQL connection from the given DSN.
+func ProvidePostgresDB(dsn string) (*pgdb.DB, error) {
+	return pgdb.New(pgdb.Config{DSN: dsn})
+}
+
+// ProvideFeeRateProvider wires the CLOB fee-rate provider.
+func ProvideFeeRateProvider(client *clob.Client) *clob.FeeRateProvider {
+	return clob.NewFeeRateProvider(client)
+}
+
+// ProvideOrderSubmitter wires the CLOB order submitter.
+func ProvideOrderSubmitter(client *clob.Client) *clob.OrderSubmitter {
+	return clob.NewOrderSubmitter(client)
+}
+
+// ProvideHeartbeatSender wires the CLOB heartbeat sender.
+func ProvideHeartbeatSender(client *clob.Client) *clob.HeartbeatSender {
+	return clob.NewHeartbeatSender(client)
+}
+
 // ProvidePricingRepository wires the PostgreSQL price repository.
 func ProvidePricingRepository(db *pgdb.DB) *pricingpgrepo.Repository {
 	return pricingpgrepo.New(db)

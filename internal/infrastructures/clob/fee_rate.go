@@ -39,6 +39,9 @@ func (p *FeeRateProvider) FetchFeeRate(ctx context.Context, tokenID string) (uin
 		return 0, fmt.Errorf("clob fee-rate: request: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("clob fee-rate: unexpected status %d", resp.StatusCode)
+	}
 
 	var result feeRateResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {

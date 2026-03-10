@@ -43,9 +43,12 @@ func (r *Repository) ListClosedWithExitPrice(ctx context.Context) ([]portfoliopo
 		if err != nil {
 			return nil, errtypes.NewInternalServerError(errListClosedWithExitFailed)
 		}
-		exitPrice, err := decimal.NewFromString(exitPriceStr.String)
-		if err != nil {
-			return nil, errtypes.NewInternalServerError(errListClosedWithExitFailed)
+		var exitPrice decimal.Decimal
+		if exitPriceStr.Valid {
+			exitPrice, err = decimal.NewFromString(exitPriceStr.String)
+			if err != nil {
+				return nil, errtypes.NewInternalServerError(errListClosedWithExitFailed)
+			}
 		}
 		pos := position.Reconstitute(position.ReconstitutedParams{
 			ID:       id,

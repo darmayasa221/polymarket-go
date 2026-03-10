@@ -43,6 +43,23 @@ func (h *Handler) Start(ctx context.Context, assetIDs []string) (<-chan MarketEv
 	return out, nil
 }
 
+// pumpMessages reads raw WebSocket frames and forwards them to msgCh until
+// the connection closes or ctx is done.
+func pumpMessages(ctx context.Context, conn *websocket.Conn, msgCh chan<- []byte) {
+	for {
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			close(msgCh)
+			return
+		}
+		select {
+		case msgCh <- msg:
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func readMarketLoop(ctx context.Context, conn *websocket.Conn, out chan<- MarketEvent) {
 	defer close(out)
 	defer conn.Close()
@@ -51,16 +68,7 @@ func readMarketLoop(ctx context.Context, conn *websocket.Conn, out chan<- Market
 	defer pingTicker.Stop()
 
 	msgCh := make(chan []byte, 16)
-	go func() {
-		for {
-			_, msg, err := conn.ReadMessage()
-			if err != nil {
-				close(msgCh)
-				return
-			}
-			msgCh <- msg
-		}
-	}()
+	go pumpMessages(ctx, conn, msgCh)
 
 	for {
 		select {

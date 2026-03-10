@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/shopspring/decimal"
 
+	"github.com/darmayasa221/polymarket-go/internal/commons/timeutil"
 	"github.com/darmayasa221/polymarket-go/internal/domains/oracle"
 )
 
@@ -50,6 +51,23 @@ type rtdsPriceData struct {
 	RoundedAt string `json:"rounded_at"`
 }
 
+// pumpMessages reads raw WebSocket frames and forwards them to msgCh until
+// the connection closes or ctx is done.
+func pumpMessages(ctx context.Context, conn *websocket.Conn, msgCh chan<- []byte) {
+	for {
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			close(msgCh)
+			return
+		}
+		select {
+		case msgCh <- msg:
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func (h *Handler) readLoop(ctx context.Context, conn *websocket.Conn, out chan<- *oracle.Price) {
 	defer close(out)
 	defer conn.Close()
@@ -58,16 +76,7 @@ func (h *Handler) readLoop(ctx context.Context, conn *websocket.Conn, out chan<-
 	defer pingTicker.Stop()
 
 	msgCh := make(chan []byte, 16)
-	go func() {
-		for {
-			_, msg, err := conn.ReadMessage()
-			if err != nil {
-				close(msgCh)
-				return
-			}
-			msgCh <- msg
-		}
-	}()
+	go pumpMessages(ctx, conn, msgCh)
 
 	for {
 		select {
@@ -112,7 +121,7 @@ func (h *Handler) handleMessage(raw []byte, out chan<- *oracle.Price) {
 		Asset:      pd.Asset,
 		Source:     source,
 		Value:      value,
-		ReceivedAt: time.Now().UTC(),
+		ReceivedAt: timeutil.Now(),
 	}
 	if pd.RoundedAt != "" {
 		if t, parseErr := time.Parse(time.RFC3339, pd.RoundedAt); parseErr == nil {

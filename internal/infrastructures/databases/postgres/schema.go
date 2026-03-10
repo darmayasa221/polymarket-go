@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS orders (
     id             TEXT        NOT NULL PRIMARY KEY,
     market_id      TEXT        NOT NULL,
     token_id       TEXT        NOT NULL,
-    side           TEXT        NOT NULL,
+    side           SMALLINT    NOT NULL,
     outcome        TEXT        NOT NULL,
     price          TEXT        NOT NULL,
     size           TEXT        NOT NULL,

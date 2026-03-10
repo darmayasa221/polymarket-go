@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"time"
+
+	"github.com/darmayasa221/polymarket-go/internal/commons/timeutil"
 )
 
 // BuildL2Signature computes the L2 request signature:
@@ -28,7 +29,7 @@ func BuildL2Signature(apiSecret, timestamp, method, requestPath, body string) (s
 
 // setL2Headers adds the 5 required L2 auth headers to req.
 func setL2Headers(req *http.Request, cfg Config, body string) error {
-	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	timestamp := strconv.FormatInt(timeutil.Now().Unix(), 10)
 	sig, err := BuildL2Signature(cfg.APISecret, timestamp, req.Method, req.URL.Path, body)
 	if err != nil {
 		return err
