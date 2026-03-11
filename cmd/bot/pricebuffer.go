@@ -105,3 +105,13 @@ func (b *priceBuffer) momentum(asset string, n int) (string, decimal.Decimal) {
 	}
 	return "Down", decimal.NewFromInt(int64(downs)).Div(decimal.NewFromInt(int64(total)))
 }
+
+// currentPrice returns the latest live Chainlink price for asset, or zero if none.
+func (b *priceBuffer) currentPrice(asset string) decimal.Decimal {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	if cur, ok := b.current[asset]; ok {
+		return cur.price
+	}
+	return decimal.Zero
+}

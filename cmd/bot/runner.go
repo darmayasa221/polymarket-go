@@ -32,6 +32,7 @@ type runner struct {
 	clobCfg      clob.Config
 	clobOrderIDs map[string]string // localOrderID → clobOrderID
 	lastWindow   int64             // Unix timestamp of last opened window boundary
+	buf          *priceBuffer      // in-memory cross-window Chainlink price history
 }
 
 func newRunner(bc *botcontainer.BotContainer, signer *signing.Signer, cfg clob.Config) *runner {
@@ -40,6 +41,7 @@ func newRunner(bc *botcontainer.BotContainer, signer *signing.Signer, cfg clob.C
 		signer:       signer,
 		clobCfg:      cfg,
 		clobOrderIDs: make(map[string]string),
+		buf:          newPriceBuffer(4), // keeps 4 closes → 3 valid comparisons for momentum(n=3)
 	}
 }
 
@@ -120,8 +122,8 @@ func (r *runner) eventLoop(ctx context.Context, priceCh <-chan *oracle.Price, ma
 			boundary := timeutil.WindowStart(timeutil.Now()).Unix()
 			if boundary != r.lastWindow {
 				r.lastWindow = boundary
-				log.Printf("runner: new window boundary %d — opening windows", boundary)
-				openWindowsForAssets(ctx, r.bc, r.signer, r.clobCfg.Address, r.clobOrderIDs)
+				log.Printf("runner: window ticker boundary=%d — opening windows (fallback)", boundary)
+				openWindowsForAssets(ctx, r.bc, r.signer, r.clobCfg.Address, r.clobOrderIDs, r.buf)
 			}
 		case <-exitTicker.C:
 			checkExits(ctx, r.bc, r.clobOrderIDs)
@@ -130,6 +132,7 @@ func (r *runner) eventLoop(ctx context.Context, priceCh <-chan *oracle.Price, ma
 }
 
 // onPrice records an oracle price reading from the RTDS WebSocket.
+// Chainlink prices are also fed into the cross-window momentum buffer.
 func (r *runner) onPrice(ctx context.Context, price *oracle.Price) {
 	_, _ = r.bc.RecordPrice.Execute(ctx, recordpricedto.Input{
 		Asset:      price.Asset(),
@@ -138,17 +141,32 @@ func (r *runner) onPrice(ctx context.Context, price *oracle.Price) {
 		RoundedAt:  price.RoundedAt(),
 		ReceivedAt: price.ReceivedAt(),
 	})
+	if price.Source() == oracle.SourceChainlink {
+		r.buf.update(price.Asset(), price.Value(), price.ReceivedAt())
+	}
 }
 
-// onMarketEvent handles market WS events, currently only tick_size_change.
+// onMarketEvent handles market WS events: tick_size_change and new_market.
 func (r *runner) onMarketEvent(ctx context.Context, ev market.MarketEvent) {
-	if ev.TickSizeChange == nil {
-		return
+	switch ev.Type {
+	case market.EventTickSizeChange:
+		if ev.TickSizeChange == nil {
+			return
+		}
+		_, _ = r.bc.UpdateTickSize.Execute(ctx, dto.Input{
+			ConditionID: ev.TickSizeChange.ConditionID,
+			NewTickSize: ev.TickSizeChange.NewTickSize,
+		})
+	case market.EventNewMarket:
+		boundary := timeutil.WindowStart(timeutil.Now()).Unix()
+		if boundary != r.lastWindow {
+			r.lastWindow = boundary
+			log.Printf("runner: new_market event boundary=%d — opening windows immediately", boundary)
+			openWindowsForAssets(ctx, r.bc, r.signer, r.clobCfg.Address, r.clobOrderIDs, r.buf)
+		}
+	case market.EventMarketResolved:
+		// Market resolved — no action needed; positions are tracked separately.
 	}
-	_, _ = r.bc.UpdateTickSize.Execute(ctx, dto.Input{
-		ConditionID: ev.TickSizeChange.ConditionID,
-		NewTickSize: ev.TickSizeChange.NewTickSize,
-	})
 }
 
 // allConditionIDs fetches condition IDs for all active markets to subscribe the market WS.

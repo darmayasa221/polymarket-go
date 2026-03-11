@@ -10,7 +10,6 @@ import (
 	refreshmarketsdto "github.com/darmayasa221/polymarket-go/internal/applications/marketwatch/commands/refreshmarkets/dto"
 	getactivemarketdto "github.com/darmayasa221/polymarket-go/internal/applications/marketwatch/queries/getactivemarket/dto"
 	openpositiondto "github.com/darmayasa221/polymarket-go/internal/applications/portfolio/commands/openposition/dto"
-	getcurrentsignaldto "github.com/darmayasa221/polymarket-go/internal/applications/pricing/queries/getcurrentsignal/dto"
 	placeorderdto "github.com/darmayasa221/polymarket-go/internal/applications/trading/commands/placeorder/dto"
 	startwindowdto "github.com/darmayasa221/polymarket-go/internal/applications/trading/commands/startwindow/dto"
 	"github.com/darmayasa221/polymarket-go/internal/commons/polyid"
@@ -21,8 +20,12 @@ import (
 // assets are the four 5-minute markets the bot trades.
 var assets = []string{"btc", "eth", "sol", "xrp"}
 
-// confidenceMin is the minimum signal confidence required to enter a trade.
-const confidenceMin = "0.30"
+// momentumWindows is the number of window closes required for a valid momentum signal.
+const momentumWindows = 3
+
+// confidenceMin is the minimum momentum confidence required to enter a trade.
+// 0.67 ≈ 2/3 windows same direction.
+const confidenceMin = "0.67"
 
 // Capital management constants.
 const (
@@ -31,15 +34,24 @@ const (
 	maxOrderTokens = int64(50) // cap per position to avoid over-concentration
 )
 
-// candidate holds a pre-fetched signal for an asset that passed the confidence check.
+// candidate holds a pre-computed momentum signal for an asset.
 type candidate struct {
-	asset  string
-	signal getcurrentsignaldto.Output
+	asset      string
+	predicted  string          // "Up" or "Down"
+	confidence decimal.Decimal // fraction of windows in dominant direction
+	openPrice  decimal.Decimal // current live Chainlink price (used as WindowState.OpenPrice)
 }
 
-// openWindowsForAssets fetches balance, collects confident signals, calculates
+// openWindowsForAssets fetches balance, collects confident momentum signals, calculates
 // position size, then opens windows for all qualifying assets.
-func openWindowsForAssets(ctx context.Context, bc *botcontainer.BotContainer, signer *signing.Signer, funderAddr string, clobOrderIDs map[string]string) {
+func openWindowsForAssets(
+	ctx context.Context,
+	bc *botcontainer.BotContainer,
+	signer *signing.Signer,
+	funderAddr string,
+	clobOrderIDs map[string]string,
+	buf *priceBuffer,
+) {
 	if _, err := bc.RefreshMarkets.Execute(ctx, refreshmarketsdto.Input{}); err != nil {
 		log.Printf("window: refresh markets: %v", err)
 		return
@@ -53,21 +65,29 @@ func openWindowsForAssets(ctx context.Context, bc *botcontainer.BotContainer, si
 	}
 	log.Printf("window: balance=%.2f USDC", balance.InexactFloat64())
 
-	// Pass 1 — collect assets whose signal confidence meets the threshold.
+	// Pass 1 — collect assets whose cross-window momentum meets the threshold.
 	minConf := decimal.RequireFromString(confidenceMin)
 	candidates := make([]candidate, 0, len(assets))
+
 	for _, asset := range assets {
-		sig, sigErr := bc.GetCurrentSignal.Execute(ctx, getcurrentsignaldto.Input{Asset: asset})
-		if sigErr != nil {
-			log.Printf("window: %s: signal error: %v", asset, sigErr)
+		predicted, conf := buf.momentum(asset, momentumWindows)
+		if predicted == "" {
+			log.Printf("window: %s: insufficient price history — skipping", asset)
 			continue
 		}
-		if sig.Signal.Confidence.LessThan(minConf) {
-			log.Printf("window: %s: confidence %.2f < %.2f — skipping", asset,
-				sig.Signal.Confidence.InexactFloat64(), minConf.InexactFloat64())
+		if conf.LessThan(minConf) {
+			log.Printf("window: %s: momentum confidence %.2f < %.2f — skipping",
+				asset, conf.InexactFloat64(), minConf.InexactFloat64())
 			continue
 		}
-		candidates = append(candidates, candidate{asset: asset, signal: sig})
+		openPrice := buf.currentPrice(asset)
+		candidates = append(candidates, candidate{
+			asset:      asset,
+			predicted:  predicted,
+			confidence: conf,
+			openPrice:  openPrice,
+		})
+		log.Printf("window: %s: momentum=%s confidence=%.2f", asset, predicted, conf.InexactFloat64())
 	}
 
 	if len(candidates) == 0 {
@@ -89,7 +109,7 @@ func openWindowsForAssets(ctx context.Context, bc *botcontainer.BotContainer, si
 
 	// Pass 2 — open a window for each qualifying asset.
 	for _, c := range candidates {
-		if err := openWindowForAsset(ctx, bc, signer, funderAddr, c.asset, c.signal, tokenCount, clobOrderIDs); err != nil {
+		if err := openWindowForAsset(ctx, bc, signer, funderAddr, c, tokenCount, clobOrderIDs); err != nil {
 			log.Printf("window: asset %s: %v", c.asset, err)
 		}
 	}
@@ -102,7 +122,7 @@ func calcTokenCount(balance decimal.Decimal, numAssets int) int64 {
 	reserve := decimal.RequireFromString(reserveRatio)
 	deployable := balance.Mul(decimal.NewFromInt(1).Sub(reserve))
 	perAsset := deployable.Div(decimal.NewFromInt(int64(numAssets)))
-	tokens := perAsset.Div(defaultEntryPrice()).Floor().IntPart()
+	tokens := perAsset.Div(entryPrice()).Floor().IntPart()
 
 	if tokens < minOrderTokens {
 		return 0
@@ -117,43 +137,47 @@ func openWindowForAsset(
 	ctx context.Context,
 	bc *botcontainer.BotContainer,
 	signer *signing.Signer,
-	funderAddr, asset string,
-	sig getcurrentsignaldto.Output,
+	funderAddr string,
+	c candidate,
 	tokenCount int64,
 	clobOrderIDs map[string]string,
 ) error {
-	// 1. Get active market
-	mkt, err := bc.GetActiveMarket.Execute(ctx, getactivemarketdto.Input{Asset: asset})
+	// 1. Get active market.
+	mkt, err := bc.GetActiveMarket.Execute(ctx, getactivemarketdto.Input{Asset: c.asset})
 	if err != nil {
 		return fmt.Errorf("get active market: %w", err)
 	}
 
-	// 2. Start window state
+	// 2. Start window state; use current live Chainlink price as open price.
+	openPrice := c.openPrice
+	if openPrice.IsZero() {
+		return fmt.Errorf("no live price available for %s", c.asset)
+	}
 	if _, err = bc.StartWindow.Execute(ctx, startwindowdto.Input{
-		Asset:       asset,
+		Asset:       c.asset,
 		MarketID:    mkt.MarketID,
 		ConditionID: mkt.ConditionID,
 		UpTokenID:   mkt.UpTokenID,
 		DownTokenID: mkt.DownTokenID,
 		TickSize:    mkt.TickSize,
-		OpenPrice:   sig.Signal.OpenPrice,
+		OpenPrice:   openPrice,
 	}); err != nil {
 		return fmt.Errorf("start window: %w", err)
 	}
 
-	// 3. Choose token based on signal direction; side is always "buy"
-	tokenID, outcome := chooseOrder(sig.Signal.Predicted, mkt.UpTokenID, mkt.DownTokenID)
+	// 3. Choose token based on momentum direction; side is always "buy".
+	tokenID, outcome := chooseOrder(c.predicted, mkt.UpTokenID, mkt.DownTokenID)
 
-	// 4. Fetch live fee rate
+	// 4. Fetch live fee rate.
 	feeRate, err := bc.FeeRateProvider.FetchFeeRate(ctx, tokenID)
 	if err != nil {
 		return fmt.Errorf("fetch fee rate: %w", err)
 	}
 
-	// 5. Place order (computes EIP-712 hash, saves order locally)
-	price := defaultEntryPrice()
+	// 5. Place order at entry price.
+	price := entryPrice()
 	placed, err := bc.PlaceOrder.Execute(ctx, placeorderdto.Input{
-		Asset:         asset,
+		Asset:         c.asset,
 		Outcome:       outcome,
 		Side:          "buy",
 		Price:         price,
@@ -166,39 +190,39 @@ func openWindowForAsset(
 		return fmt.Errorf("place order: %w", err)
 	}
 
-	// 6. Sign the EIP-712 hash
+	// 6. Sign EIP-712 hash.
 	signature, err := signer.Sign(placed.UnsignedHash)
 	if err != nil {
 		return fmt.Errorf("sign: %w", err)
 	}
 
-	// 7. Fetch the saved order domain object (needed by OrderSubmitter.Submit)
+	// 7. Fetch the saved order domain object (needed by OrderSubmitter.Submit).
 	o, err := bc.OrderRepository.FindByID(ctx, polyid.OrderID(placed.OrderID))
 	if err != nil {
 		return fmt.Errorf("fetch order: %w", err)
 	}
 
-	// 8. Submit to CLOB
+	// 8. Submit to CLOB.
 	clobOrderID, err := bc.OrderSubmitter.Submit(ctx, o, signature)
 	if err != nil {
 		return fmt.Errorf("submit order: %w", err)
 	}
 
-	// 9. Track CLOB order ID in memory (needed for cancellation)
+	// 9. Track CLOB order ID in memory (needed for cancellation).
 	clobOrderIDs[placed.OrderID] = clobOrderID
 	log.Printf("window: %s: placed %s order — tokens=%d price=%s local=%s clob=%s",
-		asset, outcome, tokenCount, price.String(), placed.OrderID, clobOrderID)
+		c.asset, outcome, tokenCount, price.String(), placed.OrderID, clobOrderID)
 
-	// 10. Open position for tracking
+	// 10. Open position for tracking.
 	if _, err = bc.OpenPosition.Execute(ctx, openpositiondto.Input{
-		Asset:    asset,
+		Asset:    c.asset,
 		TokenID:  tokenID,
 		Outcome:  outcome,
 		Size:     fmt.Sprintf("%d", tokenCount),
 		AvgPrice: price.String(),
 		MarketID: mkt.MarketID,
 	}); err != nil {
-		log.Printf("window: %s: open position: %v (non-fatal)", asset, err)
+		log.Printf("window: %s: open position: %v (non-fatal)", c.asset, err)
 	}
 
 	return nil
@@ -214,8 +238,9 @@ func chooseOrder(predicted, upTokenID, downTokenID string) (tokenID, outcome str
 	return downTokenID, "Down"
 }
 
-// defaultEntryPrice returns the conservative limit price for a new order.
-// Buying at $0.52 means only filling when the market agrees with the signal direction.
-func defaultEntryPrice() decimal.Decimal {
-	return decimal.NewFromFloat(0.52)
+// entryPrice returns the limit price for a new order.
+// $0.51 is slightly above midpoint — more likely to fill at window open
+// than the previous $0.52 while still giving positive expected value.
+func entryPrice() decimal.Decimal {
+	return decimal.NewFromFloat(0.51)
 }
