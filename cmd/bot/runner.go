@@ -119,20 +119,23 @@ func (r *runner) run(ctx context.Context) {
 // schedule the next call. The same ctx propagates through, so a ctx cancellation
 // also cleanly exits all handler goroutines via conn.Close().
 func (r *runner) attempt(ctx context.Context) {
-	if _, err := r.bc.RefreshMarkets.Execute(ctx, struct{}{}); err != nil {
+	attemptCtx, cancelAttempt := context.WithCancel(ctx)
+	defer cancelAttempt() // ensure all WS goroutines exit when attempt returns
+
+	if _, err := r.bc.RefreshMarkets.Execute(attemptCtx, struct{}{}); err != nil {
 		log.Printf("runner: refresh markets: %v (continuing)", err)
 	}
 
-	priceCh, err := r.bc.RTDSHandler.Start(ctx)
+	priceCh, err := r.bc.RTDSHandler.Start(attemptCtx)
 	if err != nil {
 		log.Printf("runner: start RTDS WS: %v — will retry", err)
 		return
 	}
 
-	conditionIDs := r.allConditionIDs(ctx)
+	conditionIDs := r.allConditionIDs(attemptCtx)
 	var marketCh <-chan market.MarketEvent
 	if len(conditionIDs) > 0 {
-		marketCh, err = r.bc.MarketHandler.Start(ctx, conditionIDs)
+		marketCh, err = r.bc.MarketHandler.Start(attemptCtx, conditionIDs)
 		if err != nil {
 			log.Printf("runner: start market WS: %v — will retry", err)
 			return
@@ -142,7 +145,7 @@ func (r *runner) attempt(ctx context.Context) {
 		marketCh = make(chan market.MarketEvent)
 	}
 
-	userCh, err := r.bc.UserHandler.Start(ctx, r.clobCfg)
+	userCh, err := r.bc.UserHandler.Start(attemptCtx, r.clobCfg)
 	if err != nil {
 		log.Printf("runner: start user WS: %v — will retry", err)
 		return
@@ -156,7 +159,7 @@ func (r *runner) attempt(ctx context.Context) {
 	defer windowTicker.Stop()
 
 	log.Println("runner: connected — starting event loop")
-	r.eventLoop(ctx, priceCh, marketCh, userCh, heartbeatTicker, exitTicker, windowTicker)
+	r.eventLoop(attemptCtx, priceCh, marketCh, userCh, heartbeatTicker, exitTicker, windowTicker)
 	log.Println("runner: event loop exited")
 }
 
