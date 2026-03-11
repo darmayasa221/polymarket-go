@@ -6,32 +6,28 @@
 - This + CLAUDE.md + git log = full context, no history needed
 
 ## Last Session Summary
-**Date:** 2026-03-10
-**Completed:** Phase 5 Interfaces — all 8 tasks done, all tests pass.
-**Branch:** `feature/phase5-interfaces`
-**Worktree:** `.worktrees/feature-phase5`
+**Date:** 2026-03-11
+**Completed:** Realtime cross-window momentum signal — all 4 tasks done, all tests pass, lint clean.
+**Branch:** `feature/realtime-signal`
+**Worktree:** `.worktrees/feature-realtime-signal`
 
 **What was done:**
-- Task 1+2: go-ethereum v1.15.7 added; EIP-712 Signer in `internal/interfaces/signing/` (3 tests pass)
-- Task 3: BotContainer in `internal/infrastructures/container/botcontainer/` — wires all 17 use cases, 3 WS handlers, CLOB adapters
-- Tasks 4-7: `cmd/bot/` — window.go, exit.go, runner.go, main.go — full trading loop
-- Task 8: SESSION.md + CLAUDE.md updated; Phase 5 marked complete
+- Task 1: `cmd/bot/pricebuffer.go` + `pricebuffer_test.go` — in-memory ring buffer of per-asset Chainlink window closes; 6 tests pass
+- Task 2: `cmd/bot/runner.go` — added `buf *priceBuffer`; `onPrice` feeds Chainlink prices; `onMarketEvent` triggers entry on `new_market` event; windowTicker kept as fallback
+- Task 3: `cmd/bot/window.go` — replaced DB signal with buffer momentum; confidence threshold 0.67 (≈2/3 windows); entry price $0.52→$0.51; removed `getcurrentsignaldto` import
+- All PASS, zero FAIL, zero lint errors
 
-**Key corrections applied vs plan:**
-- `computefee.New()` takes zero params (pure math)
-- `recordpricedto.Input` uses oracle.Price getters (Asset/Source/Value/RoundedAt/ReceivedAt)
-- `PositionDTO.PositionID` not `.ID`; no `.ClosedAt` field
-- `chooseOrder()` side always "buy" — removed unparam return
-- `eventLoop()` returns nothing (always nil — unparam fix)
-- `windowstate.WindowOpen` constant used for Status comparison
-- `nolint:gocognit` + `nolint:nilerr` where structurally justified
+**Key corrections vs plan:**
+- `TestPriceBuffer_TwoOfThreeUp`: plan used `newPriceBuffer(3)` but that gives 2 comparisons not 3; fixed to `newPriceBuffer(4)` with 5 time points for proper 2/3 confidence
+- `EventMarketResolved` case added to `onMarketEvent` switch (exhaustive lint)
+- `currentPrice()` deferred to Task 3 commit (unused function lint with Task 1 only)
 
-**Phase 5 is COMPLETE. Pending: merge to main.**
+**Pending: merge to main**
 
 ---
 
 ## Current Phase
-**Phase 5: Interfaces** — COMPLETE, PENDING MERGE TO MAIN
+**Realtime Signal** — COMPLETE, PENDING MERGE TO MAIN
 
 ## Phase Checklist
 - [x] Phase 0: Project Setup
@@ -69,10 +65,10 @@
 
 ## Git State
 - Main branch: `main`
-- Feature branch: `feature/phase5-interfaces` — 4 commits ahead of main
-- Worktree: `.worktrees/feature-phase5`
-- Last commit: `feat(bot): add window opener, exit monitor, runner, and entry point`
-- Next: merge feature/phase5-interfaces → main and clean up worktree
+- Feature branch: `feature/realtime-signal` — 2 commits ahead of main
+- Worktree: `.worktrees/feature-realtime-signal`
+- Last commit: `feat(signal): realtime cross-window momentum — entry on new_market event`
+- Next: merge feature/realtime-signal → main and clean up worktree
 
 ## Key Decisions — FINAL
 
