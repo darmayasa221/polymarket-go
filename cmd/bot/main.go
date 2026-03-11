@@ -56,5 +56,6 @@ func run() error {
 	defer stop()
 
 	r := newRunner(bc, signer, clobConfig)
-	return r.run(ctx)
+	r.run(ctx)
+	return nil
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
@@ -67,16 +66,67 @@ func newRunner(bc *botcontainer.BotContainer, signer *signing.Signer, cfg clob.C
 	}
 }
 
-// run starts WS handlers, tickers, and delegates to eventLoop.
-func (r *runner) run(ctx context.Context) error {
-	// Refresh markets before subscribing to ensure condition IDs are available
+// run starts the bot and keeps it running by reconnecting on WebSocket drops.
+// It only returns when ctx is canceled (clean shutdown).
+func (r *runner) run(ctx context.Context) {
+	b := newWsBackoff()
+	for {
+		// Fresh connected signal for this attempt.
+		// attempt() calls onPrice() which sends to r.connected on first Chainlink price.
+		r.connected = make(chan struct{}, 1)
+		r.attempt(ctx)
+
+		if ctx.Err() != nil {
+			log.Println("runner: shutting down")
+			return
+		}
+
+		// If at least one Chainlink price was received, the connection was healthy.
+		// Reset backoff so the next drop starts at 1s, not wherever we left off.
+		select {
+		case <-r.connected:
+			b.reset()
+		default:
+			// No price received — connection failed before delivering data. Keep backoff.
+		}
+
+		wait := b.next()
+		log.Printf("runner: disconnected — reconnecting in %s", wait)
+
+		// Reset per-connection order state.
+		// priceBuffer is intentionally preserved — rebuilding takes 15+ minutes.
+		r.clobOrderIDs = make(map[string]string)
+		r.lastWindow = 0
+
+		select {
+		case <-time.After(wait):
+		case <-ctx.Done():
+			log.Println("runner: shutting down during reconnect wait")
+			return
+		}
+	}
+}
+
+// attempt dials all three WebSocket connections and runs the event loop until
+// any connection drops or ctx is canceled. Dial failures are logged and treated
+// as disconnects so the outer retry loop handles them.
+//
+// WS handlers are stateless beyond their URL — calling Start() multiple times is
+// safe; each call dials a fresh independent connection. Goroutines from the
+// previous attempt have already exited before attempt() is called again: a WS
+// error causes the handler goroutine to close its output channel, eventLoop sees
+// the closed channel and returns, and only then does attempt() return and run()
+// schedule the next call. The same ctx propagates through, so a ctx cancellation
+// also cleanly exits all handler goroutines via conn.Close().
+func (r *runner) attempt(ctx context.Context) {
 	if _, err := r.bc.RefreshMarkets.Execute(ctx, struct{}{}); err != nil {
-		log.Printf("runner: initial refresh markets: %v (continuing)", err)
+		log.Printf("runner: refresh markets: %v (continuing)", err)
 	}
 
 	priceCh, err := r.bc.RTDSHandler.Start(ctx)
 	if err != nil {
-		return fmt.Errorf("runner: start RTDS WS: %w", err)
+		log.Printf("runner: start RTDS WS: %v — will retry", err)
+		return
 	}
 
 	conditionIDs := r.allConditionIDs(ctx)
@@ -84,16 +134,18 @@ func (r *runner) run(ctx context.Context) error {
 	if len(conditionIDs) > 0 {
 		marketCh, err = r.bc.MarketHandler.Start(ctx, conditionIDs)
 		if err != nil {
-			return fmt.Errorf("runner: start market WS: %w", err)
+			log.Printf("runner: start market WS: %v — will retry", err)
+			return
 		}
 	} else {
 		log.Println("runner: no active markets yet — market WS skipped until next refresh")
-		marketCh = make(chan market.MarketEvent) // never closes, never sends
+		marketCh = make(chan market.MarketEvent)
 	}
 
 	userCh, err := r.bc.UserHandler.Start(ctx, r.clobCfg)
 	if err != nil {
-		return fmt.Errorf("runner: start user WS: %w", err)
+		log.Printf("runner: start user WS: %v — will retry", err)
+		return
 	}
 
 	heartbeatTicker := time.NewTicker(heartbeatInterval)
@@ -103,9 +155,9 @@ func (r *runner) run(ctx context.Context) error {
 	defer exitTicker.Stop()
 	defer windowTicker.Stop()
 
-	log.Println("runner: started")
+	log.Println("runner: connected — starting event loop")
 	r.eventLoop(ctx, priceCh, marketCh, userCh, heartbeatTicker, exitTicker, windowTicker)
-	return nil
+	log.Println("runner: event loop exited")
 }
 
 // eventLoop processes events from all channels and tickers.
@@ -155,6 +207,7 @@ func (r *runner) eventLoop(ctx context.Context, priceCh <-chan *oracle.Price, ma
 
 // onPrice records an oracle price reading from the RTDS WebSocket.
 // Chainlink prices are also fed into the cross-window momentum buffer.
+// The first Chainlink price signals a healthy connection to the reconnect loop.
 func (r *runner) onPrice(ctx context.Context, price *oracle.Price) {
 	_, _ = r.bc.RecordPrice.Execute(ctx, recordpricedto.Input{
 		Asset:      price.Asset(),
@@ -165,6 +218,11 @@ func (r *runner) onPrice(ctx context.Context, price *oracle.Price) {
 	})
 	if price.Source() == oracle.SourceChainlink {
 		r.buf.update(price.Asset(), price.Value(), price.ReceivedAt())
+		// Signal first healthy price to run() (non-blocking; buffered channel holds at most 1).
+		select {
+		case r.connected <- struct{}{}:
+		default:
+		}
 	}
 }
 
