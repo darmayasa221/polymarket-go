@@ -25,6 +25,26 @@ const (
 	windowCheckInterval = 30 * time.Second // check for new windows every 30s
 )
 
+const wsBackoffMax = 30 * time.Second
+
+// wsBackoff implements capped exponential backoff for WebSocket reconnects.
+// Sequence: 1s → 2s → 4s → 8s → 16s → 30s (cap).
+// Call reset() when the first successful RTDS price is received to restart at 1s.
+type wsBackoff struct{ current time.Duration }
+
+func newWsBackoff() *wsBackoff { return &wsBackoff{current: time.Second} }
+
+func (b *wsBackoff) next() time.Duration {
+	d := b.current
+	b.current *= 2
+	if b.current > wsBackoffMax {
+		b.current = wsBackoffMax
+	}
+	return d
+}
+
+func (b *wsBackoff) reset() { b.current = time.Second }
+
 // runner orchestrates the bot's event loop.
 type runner struct {
 	bc           *botcontainer.BotContainer
@@ -33,6 +53,7 @@ type runner struct {
 	clobOrderIDs map[string]string // localOrderID → clobOrderID
 	lastWindow   int64             // Unix timestamp of last opened window boundary
 	buf          *priceBuffer      // in-memory cross-window Chainlink price history
+	connected    chan struct{}     // closed by onPrice on first Chainlink price; signals healthy connection to run()
 }
 
 func newRunner(bc *botcontainer.BotContainer, signer *signing.Signer, cfg clob.Config) *runner {
@@ -42,6 +63,7 @@ func newRunner(bc *botcontainer.BotContainer, signer *signing.Signer, cfg clob.C
 		clobCfg:      cfg,
 		clobOrderIDs: make(map[string]string),
 		buf:          newPriceBuffer(4), // keeps 4 closes → 3 valid comparisons for momentum(n=3)
+		connected:    make(chan struct{}, 1),
 	}
 }
 
